@@ -2,10 +2,11 @@ package security
 
 import (
 	"context"
-	"pulse/helper/utils/authenticator"
-	"pulse/helper/utils/httpc"
 	"fmt"
 	"path/filepath"
+
+	"pulse/helper/utils/authenticator"
+	"pulse/helper/utils/httpc"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest"
