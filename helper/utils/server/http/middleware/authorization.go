@@ -137,7 +137,7 @@ func Guard(next http.HandlerFunc, permissionCodes ...string) http.HandlerFunc {
 
 		jwtMap, ok := data.(*identity.MapClaims)
 		if !ok {
-			response.Error(r.Context(), w, errors.NewUnauthorized(err.Error(), localize.GetString(r.Context(), "auth_claims_invalid")))
+			response.Error(r.Context(), w, errors.NewUnauthorized("invalid claims type", localize.GetString(r.Context(), "auth_claims_invalid")))
 			return
 		}
 
