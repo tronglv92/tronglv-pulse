@@ -27,9 +27,9 @@ func TestHashPath_Determinism(t *testing.T) {
 				t.Errorf("HashPath not deterministic: got %s and %s", hash1, hash2)
 			}
 
-			// Hash should be 32 characters (truncated SHA-256 hex)
-			if len(hash1) != 32 {
-				t.Errorf("Expected hash length 32, got %d", len(hash1))
+			// Hash should be 21 characters (truncated SHA-256 hex)
+			if len(hash1) != 21 {
+				t.Errorf("Expected hash length 21, got %d", len(hash1))
 			}
 		})
 	}

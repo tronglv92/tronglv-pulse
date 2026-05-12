@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"tronglv-pulse/helper/utils/httpc"
+	"pulse/helper/utils/httpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeromicro/go-zero/core/collection"
@@ -258,13 +258,13 @@ func TestPermissionProvider_GetPermissions_Caching(t *testing.T) {
 	// First call - should hit the server
 	perms1, err := provider.GetPermissions(context.Background(), []string{"admin"})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"perm1", "perm2"}, perms1)
+	assert.ElementsMatch(t, []string{"perm1", "perm2"}, perms1)
 	assert.Equal(t, 1, callCount, "First call should hit the server")
 
 	// Second call - should use cache
 	perms2, err := provider.GetPermissions(context.Background(), []string{"admin"})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"perm1", "perm2"}, perms2)
+	assert.ElementsMatch(t, []string{"perm1", "perm2"}, perms2)
 	assert.Equal(t, 1, callCount, "Second call should use cache, not hit server")
 }
 

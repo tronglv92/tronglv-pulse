@@ -34,7 +34,6 @@ type PermissionProvider interface {
 type permissionProvider struct {
 	code        string
 	baseUrl     string
-	roles       map[string][]string
 	httpClient  httpc.Service
 	cacheClient *collection.Cache
 	staleCache  *StaleAwareCache
