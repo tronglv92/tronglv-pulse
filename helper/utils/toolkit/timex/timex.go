@@ -16,7 +16,7 @@ func init() {
 	var err error
 	LocalLocation, err = time.LoadLocation(DefaultTimeZone)
 	if err != nil {
-		logx.Error("failed to load time zone %q: %v", DefaultTimeZone, err)
+		logx.Errorf("failed to load time zone %q: %v", DefaultTimeZone, err)
 	}
 }
 
