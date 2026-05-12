@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "notebooklm": {
+      "command": "/Users/luongvantrong/.nvm/versions/node/v24.14.0/bin/npx",
+      "args": ["-y", "notebooklm-mcp@latest"]
+    },
+    "postgres-readonly": {
+      "command": "/Users/luongvantrong/.nvm/versions/node/v20.19.5/bin/node",
+      "args": [
+        "/Users/luongvantrong/.nvm/versions/node/v20.19.5/bin/npx",
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:postgres@localhost:5433/pulse_db?options=-c+default_transaction_read_only%3Don"
+      ],
+      "env": {
+        "PATH": "/Users/luongvantrong/.nvm/versions/node/v20.19.5/bin:/usr/bin:/bin"
+      }
+    }
+  }
+}

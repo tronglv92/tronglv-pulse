@@ -1,0 +1,22 @@
+Name: pulse-worker
+
+DB:
+  DataSource: host=${DB_HOST} port=${DB_PORT} user=${DB_USER} password=${DB_PASSWORD} dbname=${DB_NAME} sslmode=disable TimeZone=UTC
+
+Cache:
+  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Pass: ${REDIS_PASSWORD}
+
+Kafka:
+  Brokers:
+    - ${KAFKA_BROKERS}
+  Groups:
+    Enricher: pulse-enricher
+    Rca: pulse-rca
+    Notify: pulse-notify
+
+LLM:
+  AnthropicApiKey: ${ANTHROPIC_API_KEY}
+  AnthropicModel: ${ANTHROPIC_MODEL}
+  OpenAiApiKey: ${OPENAI_API_KEY}
+  DailyBudgetUsd: ${LLM_DAILY_BUDGET_USD}

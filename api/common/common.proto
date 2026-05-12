@@ -1,0 +1,4 @@
+syntax = "proto3";
+package common;
+
+// TODO TASK-005: define common service

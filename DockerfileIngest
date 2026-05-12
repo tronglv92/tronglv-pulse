@@ -1,0 +1,14 @@
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o pulse-ingest ./cmd/ingest/main.go
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /app
+COPY --from=builder /app/pulse-ingest .
+COPY --from=builder /app/etc/ingest.yaml ./etc/ingest.yaml
+EXPOSE 8002
+CMD ["./pulse-ingest", "-f", "etc/ingest.yaml"]

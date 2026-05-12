@@ -1,0 +1,8 @@
+{
+  "error.unauthorized": "Không được phép",
+  "error.forbidden": "Bị cấm",
+  "error.not_found": "Không tìm thấy tài nguyên",
+  "error.internal": "Lỗi máy chủ nội bộ",
+  "error.invalid_request": "Yêu cầu không hợp lệ",
+  "error.rate_limited": "Quá nhiều yêu cầu"
+}

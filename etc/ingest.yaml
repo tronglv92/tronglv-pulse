@@ -1,0 +1,11 @@
+Name: pulse-ingest
+Host: 0.0.0.0
+Port: ${SERVICE_INGEST_HTTP_PORT}
+
+Kafka:
+  Brokers:
+    - ${KAFKA_BROKERS}
+
+Auth:
+  HmacSecret: ${INGEST_HMAC_SECRET}
+  ApiKeyHeader: X-API-Key

@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package pmc.inapp.internal.authenticator;
+
+import "validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package="pmc-inapp-authentication-svc/api/authenticator;authenticatorpb";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  schemes: HTTPS
+  schemes: HTTP
+  consumes: "application/json"
+  produces: "application/json"
+  info: {
+    title: "Authentication Service",
+    version: "1.0",
+    contact: {
+      name: "Pharmacity Internal Team",
+      url: "https://github.com/Pharmacity-JSC",
+    },
+    license: {
+      name: "BSD 3-Clause License",
+      url: "https://github.com/grpc-ecosystem/grpc-gateway/blob/master/LICENSE.txt",
+    },
+  }
+  security_definitions: {
+    security: {
+      key: "Authorization",
+      value: {
+        in: 2
+        type: 2,
+        name: "Authorization",
+        description: "Bearer Token",
+      }
+    }
+  }
+};
+
+service Authenticator {
+  rpc SignInWithService(SignInWithServiceRequest) returns (OAuthTokenResponse);
+  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (OAuthTokenResponse);
+  rpc SignOut(SignOutRequest) returns (google.protobuf.Empty);
+}
+
+message SignInWithServiceRequest {
+  string client_id = 1 [
+    json_name = "client_id",
+    (validate.rules).string = {
+      min_len: 1,
+      max_len: 256,
+    }
+  ];
+  string client_secret = 2 [
+    json_name = "client_secret",
+    (validate.rules).string = {
+      min_len: 4,
+      max_len: 32,
+    }
+  ];
+}
+
+message OAuthTokenResponse {
+  string access_token = 1;
+  string token_type = 2;       // e.g., "Bearer"
+  int64 expires_in = 3;        // in seconds
+  string scope = 4;
+  string refresh_token = 5;    // optional
+  int64 issued_at = 6;         // Unix timestamp
+}
+
+message VerifyTokenRequest {
+  // @gotags: json:"token,optional"
+  string token = 1;
+  // @gotags: json:"audiences,optional"
+  repeated string audiences = 2;
+  // @gotags: json:"enrich,optional"
+  bool enrich = 3;
+}
+
+message VerifyTokenResponse {
+  // @gotags: json:"id"
+  string id = 1;
+  // @gotags: json:"name"
+  string name = 2;
+  // @gotags: json:"kind"
+  string kind = 3;
+  // @gotags: json:"source"
+  string source = 4;
+  // @gotags: json:"roles,optional"
+  repeated string roles = 5;
+  // @gotags: json:"permissions,optional"
+  repeated string permissions = 6;
+  // @gotags: json:"expiry"
+  int64 expiry = 7;
+  // @gotags: json:"issuer"
+  string issuer = 8;
+  // @gotags: json:"audience,optional"
+  repeated string audience = 9;
+  // @gotags: json:"attributes,optional"
+  map<string, string> attributes = 10;
+  // @gotags: json:"single_session,optional"
+  bool single_session = 11;
+  // @gotags: json:"jti,optional"
+  string jti = 12;
+}
+
+message RefreshTokenRequest {
+  string client_id = 1;
+  string refresh_token = 2;
+}
+
+message SignOutRequest {
+  string client_id = 1;
+  string token = 2;
+  optional string source = 3;
+}

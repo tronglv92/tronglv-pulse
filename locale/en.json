@@ -1,0 +1,8 @@
+{
+  "error.unauthorized": "Unauthorized",
+  "error.forbidden": "Forbidden",
+  "error.not_found": "Resource not found",
+  "error.internal": "Internal server error",
+  "error.invalid_request": "Invalid request",
+  "error.rate_limited": "Too many requests"
+}

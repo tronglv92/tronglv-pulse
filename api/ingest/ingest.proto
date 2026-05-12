@@ -1,0 +1,4 @@
+syntax = "proto3";
+package ingest;
+
+// TODO TASK-005: define ingest service

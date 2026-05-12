@@ -1,0 +1,1 @@
+-- TODO TASK-003: revert  timescaledb, vector, pg_trgm, citext

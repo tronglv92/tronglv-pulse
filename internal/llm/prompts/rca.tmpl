@@ -1,0 +1,25 @@
+You are an expert SRE analyzing a production incident.
+
+Service: {{ .ServiceName }}
+Severity: {{ .Severity }}
+Detected at: {{ .DetectedAt }}
+
+Recent error logs (top {{ len .Errors }} errors):
+{{ range .Errors }}
+- [{{ .Level }}] {{ .Message }}
+{{ end }}
+
+{{ if .SimilarIncidents }}
+Similar past incidents:
+{{ range .SimilarIncidents }}
+- {{ .Summary }} (resolved in {{ .MTTR }})
+{{ end }}
+{{ end }}
+
+Respond with valid JSON only, no markdown:
+{
+  "root_cause": "<one sentence>",
+  "contributing_factors": ["<factor 1>", "<factor 2>"],
+  "remediation_steps": ["<step 1>", "<step 2>"],
+  "confidence": 0.0
+}

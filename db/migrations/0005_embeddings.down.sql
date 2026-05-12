@@ -1,0 +1,1 @@
+-- TODO TASK-003: revert error_embeddings (pgvector)

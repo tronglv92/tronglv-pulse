@@ -1,0 +1,28 @@
+Name: pulse-api
+Host: 0.0.0.0
+Port: ${SERVICE_API_HTTP_PORT}
+
+Grpc:
+  ListenOn: 0.0.0.0:${SERVICE_API_GRPC_PORT}
+
+DB:
+  DataSource: host=${DB_HOST} port=${DB_PORT} user=${DB_USER} password=${DB_PASSWORD} dbname=${DB_NAME} sslmode=disable TimeZone=UTC
+
+Cache:
+  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Pass: ${REDIS_PASSWORD}
+
+Kafka:
+  Brokers:
+    - ${KAFKA_BROKERS}
+
+Auth:
+  JwtSecret: ${JWT_SECRET}
+
+LLM:
+  AnthropicApiKey: ${ANTHROPIC_API_KEY}
+  AnthropicModel: ${ANTHROPIC_MODEL}
+  DailyBudgetUsd: ${LLM_DAILY_BUDGET_USD}
+
+Telemetry:
+  Endpoint: ${TELEMETRY_ENDPOINT}

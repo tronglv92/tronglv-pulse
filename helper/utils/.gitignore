@@ -1,0 +1,15 @@
+inapp-kpis-svc
+vendor
+.idea
+.DS_Store
+config-dev.yml
+
+*.dev.yml
+*-dev.yaml
+*.sh
+docker/local.Dockerfile
+uploads/*
+tmp
+.env
+
+.claude

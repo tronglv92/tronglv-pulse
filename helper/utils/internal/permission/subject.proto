@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package pmc.inapp.internal.permission;
+
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package="pmc-inapp-permission-svc/api/permission;permissionpb";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  schemes: HTTPS
+  schemes: HTTP
+  consumes: "application/json"
+  produces: "application/json"
+  info: {
+    title: "Authentication Service",
+    version: "1.0",
+    contact: {
+      name: "Pharmacity Internal Team",
+      url: "https://github.com/Pharmacity-JSC",
+    },
+    license: {
+      name: "BSD 3-Clause License",
+      url: "https://github.com/grpc-ecosystem/grpc-gateway/blob/master/LICENSE.txt",
+    },
+  }
+  security_definitions: {
+    security: {
+      key: "Authorization",
+      value: {
+        in: IN_HEADER,
+        type: TYPE_API_KEY,
+        name: "Authorization",
+        description: "Bearer Token"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "Authorization"
+      value: {}
+    }
+  }
+};
+
+service Subject {
+  rpc GetAccessCodes (GetAccessRequest) returns (GetAccessCodesResponse);
+  rpc GetAccessIds (GetAccessRequest) returns (GetAccessIdsResponse) ;
+  rpc GetInternalRoleCodes (GetInternalRoleCodesRequest) returns (GetAccessCodesResponse);
+}
+
+message GetAccessRequest {
+  string external_id = 1 [json_name = "external_id", (validate.rules).string = {min_len: 4,max_len: 50}];
+  bool include_roles = 2 [json_name = "include_roles"];
+  bool include_groups = 3 [json_name = "include_groups"];
+  bool include_permissions = 4 [json_name = "include_permissions"];
+}
+
+message GetAccessCodesResponse {
+  // @gotags: json:"permissions"
+  repeated string permissions = 1;
+  // @gotags: json:"roles"
+  repeated string roles = 2;
+}
+
+message GetAccessIdsResponse {
+  message Access {
+    int32 id = 1 [json_name = "id"];
+    string name = 2 [json_name = "name"];
+  }
+  // @gotags: json:"groups"
+  repeated Access groups = 1 [json_name = "groups"];
+  // @gotags: json:"roles"
+  repeated Access roles = 2 [json_name = "roles"];
+  // @gotags: json:"permissions"
+  repeated Access permissions = 3 [json_name = "permissions"];
+}
+
+message GetInternalRoleCodesRequest {
+  string external_id = 1 [json_name = "external_id", (validate.rules).string = {min_len: 4,max_len: 50}];
+}

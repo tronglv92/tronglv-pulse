@@ -1,0 +1,1 @@
+-- TODO TASK-003: revert incidents table + status enum

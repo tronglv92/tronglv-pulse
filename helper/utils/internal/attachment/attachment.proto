@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package pmc.inapp.storage.attachment;
+
+import "validate/validate.proto";
+import "pmc/protobuf/errors.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package="dev.azure.com/PHARMACITYJSC/PharmacityLibrary/_git/pmc-inapp-helper.git/v2/internal/attachment";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  schemes: HTTPS
+  schemes: HTTP
+  consumes: "application/json"
+  produces: "application/json"
+  info: {
+    title: "Cloud Storage Service",
+    version: "1.0",
+    contact: {
+      name: "Pharmacity Internal Team",
+      url: "https://github.com/Pharmacity-JSC",
+    },
+    license: {
+      name: "BSD 3-Clause License",
+      url: "https://github.com/grpc-ecosystem/grpc-gateway/blob/master/LICENSE.txt",
+    },
+  }
+  security_definitions: {
+    security: {
+      key: "Authorization",
+      value: {in: 2 type: 2, name: "Authorization", description: "Bearer Token"}
+    }
+  }
+};
+
+service Attachment {
+  rpc Upload(UploadAttachmentRequest) returns(UploadAttachmentResponse){
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      security: {
+        security_requirement: {
+          key: "Authorization",
+          value: {scope: ""}
+        }
+      }
+    };
+  };
+
+  rpc PreSignedUrls(PreSignedUrlsRequest) returns (PreSignedUrlsResponse) {
+    option (google.api.http) = {
+      post: "/cloud-storage-svc/api/v1/attachment/pre-signed-urls",
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      security: {
+        security_requirement: {
+          key: "Authorization",
+          value: {scope: ""}
+        }
+      }
+    };
+  };
+}
+
+enum ActionType {
+  UPLOAD_TYPE = 0;
+  EXPORT_TYPE = 1;
+}
+
+message FileInfo {
+  string file_name = 1 [json_name = "file_name"];
+  bytes file_data = 2 [json_name = "file_data"];
+  int64 file_size = 3 [json_name = "file_size"];
+}
+
+message UploadAttachmentRequest {
+  repeated FileInfo attachments = 1 [
+    json_name = "attachments",
+    (validate.rules).repeated = {
+      min_items: 1,
+    }
+  ];
+  string service_name             = 2 [json_name = "service_name"];
+  optional string acl             = 3 [json_name = "acl"];
+  optional bool is_override       = 4 [json_name = "is_override"];
+  optional bool is_presigned      = 5 [json_name = "is_presigned"];
+  optional google.protobuf.Duration duration = 6 [json_name = "duration"];
+  optional string bucket_alias    = 7 [json_name = "bucket_alias"];
+  optional ActionType action      = 8 [json_name = "action"];
+  optional bool original_filename = 9 [json_name = "original_filename"];
+  optional string employee_id     = 10 [json_name = "employee_id"];
+}
+
+message UploadAttachmentResponse {
+  repeated UploadAttachmentItem attachments = 1 [json_name = "attachments"];
+}
+
+message UploadAttachmentItem {
+  oneof response {
+    string url = 1 [json_name = "url"];
+    pmc.protobuf.Status error = 2 [json_name = "error"];
+  }
+}
+
+message PreSignedUrlsRequest {
+  repeated string urls = 1 [
+    json_name = "urls",
+    (validate.rules).repeated = {
+      min_items: 1,
+      unique: true,
+      items: {
+        string: {
+          uri: true,
+          contains: "/inapp/",
+        }
+      },
+    }
+  ];
+  optional google.protobuf.Duration duration = 2 [json_name = "duration"];
+  optional bool is_put = 3 [json_name = "is_put"];
+  optional string bucket_alias    = 4 [json_name = "bucket_alias"];
+  optional ActionType action      = 5 [json_name = "action"];
+  optional string employee_id     = 6 [json_name = "employee_id"];
+  string service_name             = 7 [json_name = "service_name"];
+}
+
+message PreSignedUrlsResponse {
+  repeated string signed_urls = 1 [json_name = "signed_urls"];
+}

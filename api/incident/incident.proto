@@ -1,0 +1,4 @@
+syntax = "proto3";
+package incident;
+
+// TODO TASK-005: define incident service

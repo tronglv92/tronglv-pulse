@@ -1,0 +1,6 @@
+# Stub Helm values — future work
+replicaCount: 1
+image:
+  repository: ghcr.io/your-org/pulse
+  tag: latest
+  pullPolicy: IfNotPresent

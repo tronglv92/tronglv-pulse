@@ -1,0 +1,13 @@
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o pulse-worker ./cmd/worker/main.go
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /app
+COPY --from=builder /app/pulse-worker .
+COPY --from=builder /app/etc/worker.yaml ./etc/worker.yaml
+CMD ["./pulse-worker", "-f", "etc/worker.yaml"]

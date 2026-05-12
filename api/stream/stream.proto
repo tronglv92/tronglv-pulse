@@ -1,0 +1,4 @@
+syntax = "proto3";
+package stream;
+
+// TODO TASK-005: define stream service

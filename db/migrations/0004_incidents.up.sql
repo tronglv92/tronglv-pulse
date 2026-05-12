@@ -1,0 +1,1 @@
+-- TODO TASK-003: incidents table + status enum

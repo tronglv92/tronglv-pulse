@@ -1,0 +1,4 @@
+syntax = "proto3";
+package search;
+
+// TODO TASK-005: define search service

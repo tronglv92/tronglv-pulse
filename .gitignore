@@ -1,0 +1,37 @@
+
+# Binaries
+pulse-api
+pulse-ingest
+pulse-worker
+pulse-cron
+tmp/
+
+# Environment — never commit secrets
+.env
+.env.local
+
+# Workspace file — local-only (references tronglv-pulse on dev machine)
+go.work
+go.work.sum
+
+# Build artefacts
+build/
+vendor/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Test output
+coverage.out
+coverage.html
+build-errors.log
+
+# Local docker overrides
+Dockerfile.local
+docker-compose.override.yml
+
+# Claude Code session data
+.claude/
+tronglv-pulse

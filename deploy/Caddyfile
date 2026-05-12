@@ -1,0 +1,6 @@
+# TODO TASK-002: replace example.com with your domain
+example.com {
+    reverse_proxy /api/* api:8000
+    reverse_proxy /ingest/* ingest:8002
+    reverse_proxy /* api:8000
+}
