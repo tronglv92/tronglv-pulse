@@ -74,7 +74,7 @@ func (m *ClientManager[C]) StartMonitor(interval time.Duration) {
 						}
 						client, err := zrpc.NewClient(m.config)
 						if err != nil {
-							logx.Info("failed to reconnect gRPC client: %v", err)
+							logx.Infof("failed to reconnect gRPC client: %v", err)
 							m.mu.Unlock()
 							continue
 						}
