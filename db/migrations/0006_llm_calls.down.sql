@@ -1,1 +1,2 @@
--- TODO TASK-003: revert llm_calls cost tracking
+DROP TABLE IF EXISTS rca_cache;
+DROP TABLE IF EXISTS llm_calls;

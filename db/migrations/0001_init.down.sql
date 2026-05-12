@@ -1,1 +1,6 @@
--- TODO TASK-003: revert  timescaledb, vector, pg_trgm, citext
+DROP TABLE IF EXISTS api_keys;
+DROP TABLE IF EXISTS tenants;
+DROP EXTENSION IF EXISTS citext;
+DROP EXTENSION IF EXISTS pg_trgm;
+DROP EXTENSION IF EXISTS vector;
+DROP EXTENSION IF EXISTS timescaledb CASCADE;

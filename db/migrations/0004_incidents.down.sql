@@ -1,1 +1,2 @@
--- TODO TASK-003: revert incidents table + status enum
+DROP TABLE IF EXISTS incidents;
+DROP TYPE  IF EXISTS incident_status;

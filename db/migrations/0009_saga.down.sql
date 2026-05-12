@@ -1,1 +1,1 @@
--- TODO TASK-003: revert saga_instances (ADR-009)
+DROP TABLE IF EXISTS saga_instances;

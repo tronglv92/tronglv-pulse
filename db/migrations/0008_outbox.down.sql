@@ -1,1 +1,1 @@
--- TODO TASK-003: revert outbox_events (ADR-008)
+DROP TABLE IF EXISTS outbox_events;

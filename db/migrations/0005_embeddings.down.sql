@@ -1,1 +1,1 @@
--- TODO TASK-003: revert error_embeddings (pgvector)
+DROP TABLE IF EXISTS error_embeddings;
