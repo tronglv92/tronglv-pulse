@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	cache "tronglv-pulse/helper/utils/cache"
+	cache "pulse/helper/utils/cache"
 	mock "github.com/stretchr/testify/mock"
 )
 

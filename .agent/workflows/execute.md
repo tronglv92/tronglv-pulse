@@ -14,6 +14,23 @@ Apply these rules throughout every execution session:
 - Always check available skills before starting — load `systematic-debugging` for bugs, `test-driven-development` for features
 - Never skip skill loading to save time — skills prevent rework
 
+### GoAtlas (Code Intelligence)
+When you need to explore source code, check structure, find functions/types/endpoints, or understand code flow, prefer using MCP GoAtlas tools (`search_code`, `find_symbol`, `find_callers`, `get_file_symbols`, `list_api_endpoints`, `read_file`) over manual grep/find. GoAtlas has indexed all PMC WMS services.
+
+### Token Budget — Task Classification
+
+Classify each task before choosing a review strategy. Wrong choice wastes 10–30× tokens.
+
+| Task type | Examples | Review strategy |
+|---|---|---|
+| **Mechanical** | Interface files, type/constant definitions, config structs, proto stub writes | 1 implementer subagent → `go build` + `go vet` → commit. No spec/quality reviewers. |
+| **Standard** | CRUD repository, simple service method, mapper, handler wiring | 1 implementer → spec reviewer → commit |
+| **Complex** | Business logic with edge cases, auth, multi-service coordination, anomaly/RCA pipeline | Full pipeline: implementer → spec reviewer → code quality reviewer |
+
+**For exploration:** Always call GoAtlas MCP tools first (`find_symbol`, `get_file_symbols`). Only spawn an Explore subagent if GoAtlas cannot answer the question. Never spawn 3 Explore agents when 1 GoAtlas call answers it.
+
+**For planning:** Skip the Plan subagent when the task spec already defines exact file contents (interfaces, config, protos). Write the plan directly from spec. Plan subagents are for tasks requiring design judgment.
+
 ### Technical Specs
 - Read proto files and entity definitions before writing any code
 - When in doubt about field names or types, check `api/{domain}/*.proto` first, then existing entity files

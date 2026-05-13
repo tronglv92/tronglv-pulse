@@ -2,7 +2,7 @@
 
 **Project:** Pulse — AI-Native Observability Platform (Portfolio Edition)
 **Total budget:** ~150 hours over 12 weeks (~2.5 hrs/day, 5 days/week)
-**Last updated:** 2026-05-11
+**Last updated:** 2026-05-13 (done: TASK-001–008)
 
 ---
 
@@ -16,188 +16,264 @@
 | **Deps** | Tasks that must complete first |
 | **Status** | `todo` / `in-progress` / `done` |
 
-The **non-negotiable core** is: ingestion → anomaly → RCA → dashboard. Everything else is `should`.
+### Execution philosophy
+
+1. **Shared infrastructure first** — config, registry, Kafka, middleware, external clients. No domain code until these compile.
+2. **One reference domain end-to-end (`auth`)** — complete vertical slice: middleware → handler → service → repository. No Kafka, no AI. Clean pattern for all other domains to follow.
+3. **Remaining domains in ascending complexity** — search → ingestion → incident → notification → stream → rca.
+4. When implementing a domain, read `internal/auth/` first as the reference implementation.
+
+The **non-negotiable core chain**: `TASK-001 → TASK-004 → TASK-005 → TASK-006 → TASK-009 → TASK-011 → TASK-023 → TASK-029 → TASK-035 → TASK-038 → TASK-043 → TASK-049 → TASK-053 → TASK-057 → TASK-066`
 
 ---
 
-## Sprint 1–2: Foundation (~27 hrs, Weeks 1–2)
+## Phase 0: Foundation (done)
 
-**Goal:** `make up` brings three healthy services. Proto contracts generated. CI pipeline is green.
+All TASK-001 through TASK-007 are complete.
 
 | ID | Task | Est | Pri | Deps | Status |
 |---|---|---|---|---|---|
-| TASK-001 | Init Go monorepo from `tronglv-pulse` boilerplate: set `go.mod` module name to `pulse`; create `cmd/api`, `cmd/ingest`, `cmd/worker`, `cmd/cron`, `cmd/sim`; set up `go.work` (workspace includes `helper/` module); add `pmctl.gen.yaml`, `CLAUDE.md`, `.air.toml`, `.mcp.json`, `.env.example`, `.gitignore` | 2h | must | — | todo |
-| TASK-002 | Dev `docker-compose.yml`: Postgres 16 (`timescale/timescaledb-ha:pg16-all`), Redis 7, Redpanda (KRaft single-node), pgAdmin 4; all on `pulse` bridge network; bind port Postgres `:5433`, Redis `:6379`, Redpanda `:9092`, pgAdmin `:5050` | 2h | must | TASK-001 | todo |
-| TASK-003 | DB migrations 0001–0009 (`db/migrations/`): write both `.up.sql` and `.down.sql` for every migration — extensions (timescaledb, vector, pg_trgm, citext), logs hypertable, `logs_metrics_5min` continuous aggregate, incidents, error_embeddings, llm_calls, audit_logs, outbox_events, saga_instances | 5h | must | TASK-002 | todo |
-| TASK-004 | GORM entities (`internal/types/entity/`): `Log`, `Incident`, `ErrorEmbedding`, `LLMCall`, `AuditLog`, `Tenant`, `User`, `APIKey`, `OutboxEvent`, `SagaInstance`; register all in `migrate.go`; add `internal/types/define/constant/constant.go` (topic names, cache TTLs, rate limits) + `permission.go`; add `internal/types/define/enum/enum.go` (Severity, IncidentStatus, ResolutionCategory); add `internal/types/event/` Kafka payload structs (`RawLogEvent`, `AnomalyEvent`, `RCACompletedEvent`) | 3.5h | must | TASK-003 | todo |
-| TASK-005 | Proto contracts: write `.proto` files for all 5 domains in `api/` (`ingest.proto`, `incident.proto`, `search.proto`, `stream.proto`, `common.proto`); vendor shared proto deps into `protos/` (google/api, google/protobuf, google/rpc, validate, openapi/v3, protoc-gen-openapiv2); run `make grpc && make validate && make gateway` → verify all generated files appear (`*.pb.go`, `*_grpc.pb.go`, `*_http.pb.go`, `*.pb.validate.go`) | 3h | must | TASK-001 | todo |
-| TASK-006 | Port interfaces (`internal/contract/`): write all 9 interface files — `repository.go` (LogRepo, IncidentRepo, EmbeddingRepo, LLMCallRepo, TenantRepo, APIKeyRepo, OutboxRepo, SagaRepo, AuditLogRepo), `publisher.go` (KafkaPublisher), `outbox.go` (OutboxAppender + OutboxRepository), `saga.go` (Step + Saga + SagaRepository), `tx.go` (TxManager / RunInTx), `llm.go` (LLMClient: Generate + Embed), `notifier.go` (Notifier: SendAlert), `cache.go` (Cache: Get/Set/Del), `stats.go` (StatsProvider: ZScore) | 2h | must | TASK-004 | todo |
-| TASK-007 | Config structs (`internal/config/config.go`): single Config struct per binary; write `etc/api.yaml`, `etc/ingest.yaml`, `etc/worker.yaml`, `etc/cron.yaml` using `${ENV_VAR}` substitution; complete `.env.example` with all variables and defaults | 1.5h | must | TASK-005 | todo |
-| TASK-008 | `GET /health` endpoint on each of the three services (no auth, no DB call); verify with `curl localhost:{8000,8002}/health` | 1h | must | TASK-007 | todo |
-| TASK-009 | `internal/registry/` DI composition root (mirrors boilerplate exactly): `base_context.go` (BaseContext interface: GetConfig, GetDownloader), `repository_context.go` (RepositoryContext interface + impl: all repo getters), `service_context.go` (ServiceContext interface + impl: HTTP/gRPC wiring), `consumer_context.go` (ConsumerContext + impl: Kafka consumer wiring), `cron_context.go` (CronContext + impl: scheduled job wiring), `security_authentication.go`, `security_authorization.go`, `security_http.go`, `security_context.go` | 3h | must | TASK-006 | todo |
-| TASK-010 | Makefile targets: `make up`, `make down`, `make run-api`, `make run-ingest`, `make run-worker`, `make run-cron`, `make air`, `make test`, `make coverage`, `make grpc`, `make validate`, `make gateway`, `make mocks`, `make migrate-up`, `make migrate-down`, `make seed`, `make demo` | 1.5h | must | TASK-001 | todo |
-| TASK-011 | GitHub Actions CI workflow (`.github/workflows/ci.yml`): `golangci-lint run`, `go test -race ./...`, `go test -bench=. -benchmem ./cmd/ingest/...`, `docker build` for each of the 4 Dockerfiles; push images to `ghcr.io` on tag; add CI badge to README | 2h | must | TASK-001 | todo |
-| TASK-012 | Seed script (`scripts/seed.sh`): insert demo tenant, demo user (bcrypt cost-12 hashed pw), demo API key (`pk_demo_xxx`) with known HMAC secret; idempotent (upsert, not insert) | 1h | should | TASK-003 | todo |
-
-**Sprint exit criteria:** `make up` starts three services; all `/health` endpoints return 200; `make grpc` regenerates without errors; `make test` passes; CI pipeline is green on push.
+| TASK-001 | Init Go monorepo: `go.mod` (module `pulse`), `cmd/` binaries, `go.work`, `pmctl.gen.yaml`, `CLAUDE.md`, `.air.toml`, `.mcp.json`, `.env.example`, `.gitignore` | 2h | must | — | done |
+| TASK-002 | `docker-compose.yml`: TimescaleDB + pgvector (`pg16-all`), Redis 7, Redpanda, pgAdmin; bind ports 5433/6379/9092/5050 on `pulse` bridge network | 2h | must | TASK-001 | done |
+| TASK-003 | DB migrations 0001–0009 (`db/migrations/`): extensions (timescaledb, vector, pg_trgm, citext), log_entries hypertable, `logs_metrics_5min` continuous aggregate, incidents, error_embeddings, llm_calls, rca_cache, api_keys, outbox_events, saga_instances, audit_logs; both `.up.sql` and `.down.sql` | 5h | must | TASK-002 | done |
+| TASK-004 | GORM entities (`internal/types/entity/`): `LogEntry`, `AnomalyEvent`, `Incident`, `ErrorEmbedding`, `LLMCall`, `RCACache`, `Tenant`, `User`, `APIKey`, `OutboxEvent`, `SagaInstance`, `AuditLog`; register in `migrate.go`; constants in `internal/types/define/constant/`; enums in `internal/types/define/enum/` | 3.5h | must | TASK-003 | done |
+| TASK-005 | Proto contracts (`api/`): `ingest.proto`, `incident.proto`, `search.proto`, `stream.proto`, `auth.proto`, `common.proto`; vendor shared protos into `protos/`; run `make grpc && make validate` | 3h | must | TASK-001 | done |
+| TASK-006 | Port interfaces (`internal/contract/`): `repository.go` (9 repo interfaces), `tx.go` (TxManager), `outbox.go` (OutboxAppender + OutboxRepository), `publisher.go` (KafkaPublisher), `llm.go` (LLMClient), `cache.go` (Cache), `notifier.go` (Notifier), `stats.go` (StatsProvider), `saga.go` (Step + Saga + SagaRepository) | 2h | must | TASK-004 | done |
+| TASK-007 | Restructure `internal/` into domain modules: create `ingestion/`, `incident/`, `rca/`, `search/`, `stream/`, `auth/`, `notification/`; each owns handler + service + repository + consumer + mapper + dto + event; delete `service/`, `server/`, `types/dto/`, `types/event/` | 2h | must | TASK-006 | done |
 
 ---
 
-## Sprint 3–4: Ingestion Pipeline (~25 hrs, Weeks 3–4)
+## Phase 1: Shared Infrastructure (~20 hrs)
 
-**Goal:** Logs flow end-to-end from HTTP POST → Kafka → TimescaleDB. Visible by querying the DB.
+**Goal:** All three binaries compile and return `/health`. Kafka, outbox, external clients, stats helpers all in place. No domain-specific code yet.
 
 | ID | Task | Est | Pri | Deps | Status |
 |---|---|---|---|---|---|
-| TASK-013 | `internal/handler/http_handler.go`: `RegisterHTTPHandlers` mounts all REST routes and attaches middleware chain; `internal/handler/ingest_handler.go`: implements `POST /v1/logs` (delegates to ingest service); `internal/handler/health_handler.go`: `/health` + `/v1/metrics` (Prometheus) | 2h | must | TASK-009 | todo |
-| TASK-014 | HMAC middleware (`internal/middleware/hmac_middleware.go`): verify `X-Signature: sha256=<hmac-of-body>` against `INGEST_HMAC_SECRET`; 401 on failure; reuse `helper/utils/toolkit/crypto.go` from boilerplate; add `helper/hmac/hmac.go` thin wrapper | 1.5h | must | TASK-013 | todo |
-| TASK-015 | API key auth middleware (`internal/middleware/auth_middleware.go`): validate `Authorization: Bearer pk_xxx`; lookup prefix → hash in `api_keys` table, cache hit/miss via `helper/utils/cache/`; 401 on failure | 1.5h | must | TASK-013 | todo |
-| TASK-016 | Rate limiter middleware (`internal/middleware/rate_limit_middleware.go`): Redis token-bucket, 50k logs/sec per tenant; 429 + `Retry-After` on exceed; reuse `helper/utils/stores/redis/` | 1.5h | must | TASK-013 | todo |
-| TASK-017 | Request DTO + fingerprint: `internal/types/dto/ingest_dto.go` (LogEntry, LogBatch); `helper/fingerprint/fingerprint.go` — MD5(service + top-error-message + severity) → CHAR(32) | 1h | must | TASK-004 | todo |
-| TASK-018 | Kafka producer (`internal/kafka/producer.go`): wraps `segmentio/kafka-go`; idempotent batching; `acks=all`; publishes to `logs.raw`; `internal/kafka/topics.go` (all 4 topic name constants) | 2h | must | TASK-009 | todo |
-| TASK-019 | Ingest service (`internal/service/ingest_service.go`): validate batch (≤500 entries, ≤2MB), compute fingerprint per entry, call `KafkaPublisher.Publish(logs.raw)`; return accepted_count; run `pmctl gen service` after → regenerates `service_factory.go` | 2h | must | TASK-017 TASK-018 | todo |
-| TASK-020 | Ingest repository (`internal/repository/api_key_repository.go`, `internal/repository/log_repository.go`): API key lookup (prefix → hash compare); insert to TimescaleDB hypertable via GORM; both implement their `internal/contract/repository.go` interfaces | 2h | must | TASK-009 | todo |
-| TASK-021 | BadgerDB local buffer (`internal/kafka/buffer.go`): on `Kafka.Publish` failure, write to local BadgerDB; background goroutine retries every 5s; clears on success | 2.5h | should | TASK-018 | todo |
-| TASK-022 | Kafka consumer scaffold (`internal/kafka/consumer.go`): wraps `kq.MustNewQueue`; `ConsumeHandler` interface; `internal/consumer/consumer.go` supervisor — one goroutine per consumer with panic-recovery restart | 2h | must | TASK-009 | todo |
-| TASK-023 | Enricher consumer (`internal/consumer/enricher_consumer.go`): subscribes to `logs.raw`; calls enricher service; publishes to `logs.enriched` via Outbox; `internal/service/enricher_service.go` — parse, fingerprint, GORM insert to logs hypertable | 3h | must | TASK-022 | todo |
-| TASK-024 | Synthetic log generator (`cmd/sim/main.go`): HTTP POST to `/v1/logs` with valid HMAC; flags `--target`, `--api-key`, `--hmac-secret`, `--service`, `--rps`, `--error-rate`, `--duration`; `scripts/simulate-traffic.sh` runs at 100 rps for 60s | 2h | must | TASK-013 | todo |
+| TASK-008 | Config structs (`internal/config/config.go`): one `Config` per binary; `etc/api.yaml`, `etc/ingest.yaml`, `etc/worker.yaml`, `etc/cron.yaml` with `${ENV_VAR}` substitution; complete `.env.example` with all variables and defaults | 1.5h | must | TASK-005 | done |
+| TASK-009 | `GET /health` on api (8000) and ingest (8002): no auth, no DB call; `cmd/api/main.go` and `cmd/ingest/main.go` wire go-zero ServiceGroup; verify `curl localhost:{8000,8002}/health` → 200 | 1h | must | TASK-008 | todo |
+| TASK-010 | `internal/registry/` DI composition root: `base_context.go` (BaseContext: GetConfig, GetDownloader), `repository_context.go` (all repo getters — stubs for now), `service_context.go` (HTTP/gRPC wiring), `consumer_context.go` (Kafka consumer wiring), `cron_context.go` (cron job wiring), `security_authentication.go`, `security_authorization.go`, `security_http.go`, `security_context.go` | 3h | must | TASK-008 | todo |
+| TASK-011 | Makefile: `make up/down`, `make run-api/ingest/worker/cron`, `make air`, `make test/coverage`, `make grpc/validate/mocks`, `make migrate-up/down`, `make seed`, `make demo`; Dockerfiles for each binary | 1.5h | must | TASK-001 | todo |
+| TASK-012 | GitHub Actions CI (`.github/workflows/ci.yml`): `golangci-lint`, `go test -race ./...`, `docker build` all images; push to `ghcr.io` on tag; CI badge in README | 2h | must | TASK-001 | todo |
+| TASK-013 | Seed script (`scripts/seed.sh`): insert demo tenant, demo user (bcrypt cost-12), demo API key (`pk_demo_xxx`) with known HMAC secret; idempotent (upsert) | 1h | should | TASK-003 | todo |
+| TASK-014 | Cross-cutting middleware (`internal/middleware/`): `logging_middleware.go` (structured request + response log), `recovery_middleware.go` (panic → 500), `rate_limit_middleware.go` (Redis token-bucket 50k/sec per tenant) | 1.5h | must | TASK-010 | todo |
+| TASK-015 | Kafka producer (`internal/kafka/producer.go`): wraps `segmentio/kafka-go`; idempotent batching, `acks=all`; `internal/kafka/topics.go` (5 topic constants: `pulse.logs.raw`, `pulse.anomalies`, `pulse.rca.request`, `pulse.rca.result`, `pulse.outbox`) | 2h | must | TASK-010 | todo |
+| TASK-016 | Kafka consumer scaffold (`internal/kafka/consumer.go`): wraps `kq.MustNewQueue`; `ConsumeHandler` interface; `internal/consumer/consumer.go` supervisor — one goroutine per consumer with panic-recovery restart | 2h | must | TASK-010 | todo |
+| TASK-017 | Outbox publisher (`internal/outbox/publisher.go`): goroutine in `cmd/worker`; `FOR UPDATE SKIP LOCKED` fetches ≤100 unpublished rows every 500ms; publishes via `KafkaPublisher`; exponential backoff on failure; `MarkPublished` on success; `internal/outbox/repository.go` implements `contract.OutboxRepository`; dedup via `internal/outbox/dedup.go` (Redis key `evt:{id}`, 1h TTL) | 3h | must | TASK-015 TASK-016 | todo |
+| TASK-018 | External clients: `external/anthropic/client.go` (implements `contract.LLMClient.Generate`, 20s timeout, retry once on parse failure); `external/openai/client.go` (implements `LLMClient.Embed`, 1536 dims); `external/slack/client.go` (implements `contract.Notifier.SendAlert`, retry × 5 with backoff); `internal/llm/fake.go` (deterministic output by input hash, for tests) | 3h | must | TASK-006 | todo |
+| TASK-019 | Stats helpers (`helper/stats/`): `zscore.go` (rolling z-score with configurable baseline window, sparse-data fallback returns 0); `ewma.go`; unit tests for both | 2h | must | — | todo |
 
-**Sprint exit criteria:** `bash scripts/simulate-traffic.sh` runs for 60 seconds; `SELECT count(*) FROM logs` in Postgres returns > 5000 rows.
+**Phase 1 exit criteria:** `make up` starts three services; `/health` returns 200 on api and ingest; `make test` passes; `go build ./...` on `internal/` passes clean.
 
 ---
 
-## Sprint 5–6: Realtime Dashboard (~25 hrs, Weeks 5–6)
+## Phase 2: Reference Domain — `auth` (~8 hrs)
 
-**Goal:** Open browser, login, watch logs streaming live in the log table.
+**Goal:** Complete `internal/auth/` end-to-end. This is the reference implementation — every other domain follows the same layer pattern. Read this domain before implementing any other.
+
+**Pattern established here:**
+- `auth/X_repo.go` implements a `contract.XRepo` interface (GORM, db.WithContext)
+- `auth/service.go` depends on repo interfaces, no concrete types
+- `auth/handler.go` parses proto request → validates → calls service → returns proto response
+- `auth/X_middleware.go` for domain-specific middleware
+- Registry wiring: repo → service_context → grpc_handler + http_handler
 
 | ID | Task | Est | Pri | Deps | Status |
 |---|---|---|---|---|---|
-| TASK-025 | Auth service + handler: `internal/service/auth_service.go` (bcrypt compare via `helper/utils/authenticator/`, issue 15m access token + 30d refresh token, rotation on refresh); `internal/handler/auth_handler.go` (`POST /v1/auth/login`, `POST /v1/auth/refresh`); `internal/repository/tenant_repository.go` (user lookup by email) | 3h | must | TASK-009 | todo |
-| TASK-026 | Auth + tenant middleware: `internal/middleware/auth_middleware.go` (JWT verify via `helper/utils/authenticator/`); `internal/middleware/tenant_middleware.go` (extract tenant_id from JWT claims → context, reuse `helper/utils/identity/`); `internal/middleware/recovery_middleware.go` (panic → 500, reuse `helper/utils/recovery/`) | 1.5h | must | TASK-025 | todo |
-| TASK-027 | WebSocket hub (`internal/server/ws_hub.go`): in-process pub/sub; browser WS connection registers a typed channel with service filter; Kafka events fan out to matching connections; sample beyond 1000 msgs/sec per client; thread-safe with `sync.RWMutex` | 3h | must | TASK-009 | todo |
-| TASK-028 | WebSocket handler (`internal/handler/stream_handler.go`): `GET /v1/stream?token=<jwt>`; JWT validation; read subscribe message `{action, channel, filter}`; write `{type, data}` frames; heartbeat ping every 30s; auto-close on auth expiry | 2h | must | TASK-027 | todo |
-| TASK-029 | Kafka → WS bridge (`internal/consumer/`): consumer subscribes to `logs.enriched` + `anomalies.detected` + `rca.completed`; pushes deserialized events to `ws_hub` channels; add to `consumer.go` supervisor | 2h | must | TASK-027 TASK-023 | todo |
-| TASK-030 | Incident + search handlers: `internal/handler/incident_handler.go` (`GET /v1/incidents`, `GET /v1/incidents/{id}`); `internal/handler/search_handler.go` (`GET /v1/logs/search?q=&service=&from=&to=`); `internal/handler/grpc_handler.go` `RegisterGRPCHandlers`; `internal/repository/incident_repository.go` (GORM CRUD) | 2.5h | must | TASK-009 | todo |
-| TASK-031 | Incident + search services: `internal/service/incident_service.go` (list + get; ack/resolve stubs for later); `internal/service/search_service.go` (full-text via `pg_trgm`); `internal/types/dto/incident_dto.go`, `internal/types/dto/search_dto.go`; run `pmctl gen service` | 2h | must | TASK-030 | todo |
-| TASK-032 | React + Vite + Tailwind scaffold (`web/`): init with `shadcn/ui`; directory structure `web/src/{components,pages,hooks,api}`; login page; main layout (sidebar + header); typed API client wrappers in `web/src/api/` | 3h | must | — | todo |
-| TASK-033 | Live log table (`web/src/pages/Dashboard.tsx`): WebSocket hook (`web/src/hooks/useWebSocket.ts`); virtual-scroll table (max 500 visible rows); pause/resume toggle; service filter dropdown; reconnect with exponential backoff on WS disconnect | 4h | must | TASK-028 TASK-032 | todo |
-| TASK-034 | Incident list page (`web/src/pages/IncidentList.tsx`): open incident cards with service name, severity badge, z-score, detected-at; poll `GET /v1/incidents?status=open` every 10s; WS push updates list without page reload; empty + loading states | 2h | must | TASK-031 TASK-032 | todo |
+| TASK-020 | `internal/auth/` repositories: `tenant_repo.go` (TenantRepo impl: Save, FindByID, FindBySlug, Update); `api_key_repo.go` (APIKeyRepo impl: Save, FindByHash, ListByTenant, Delete, TouchLastUsed); `audit_repo.go` (AuditLogRepo impl: Append, FindByResource) — all GORM with `db.WithContext(ctx)` | 2h | must | TASK-010 | todo |
+| TASK-021 | `internal/auth/service.go` (AuthService): bcrypt compare via `helper/utils/authenticator/`; issue 15-min access + 30-day refresh JWT; rotation on refresh; create/revoke API key (HMAC key hash stored, raw key returned once); TouchLastUsed on every authenticated request; AuditLog append on sensitive operations | 2h | must | TASK-020 | todo |
+| TASK-022 | `internal/auth/` middleware: `hmac_middleware.go` (verify `X-Signature: sha256=<hmac>` against `INGEST_HMAC_SECRET`; 401 on fail); `auth_middleware.go` (JWT Bearer verify; 401 on fail); `tenant_middleware.go` (extract tenant_id from JWT claims → context via `helper/utils/identity/`) | 1.5h | must | TASK-021 | todo |
+| TASK-023 | `internal/auth/handler.go`: `POST /v1/auth/login`, `POST /v1/auth/refresh`, `POST /v1/auth/keys` (create), `DELETE /v1/auth/keys/{id}` (revoke), `GET /v1/auth/keys` (list); wire into `internal/handler/grpc_handler.go` and `internal/handler/http_handler.go`; register repos + service in `internal/registry/repository_context.go` and `service_context.go`; run `pmctl gen service` | 1.5h | must | TASK-022 TASK-010 | todo |
+| TASK-024 | End-to-end smoke test for auth domain: seed tenant + user → `POST /v1/auth/login` → verify JWT → `POST /v1/auth/keys` → verify HMAC signature with new key → `GET /v1/auth/keys` returns list; script in `scripts/smoke-auth.sh` | 1h | must | TASK-023 TASK-013 | todo |
 
-**Sprint exit criteria:** `localhost:3000` loads; login succeeds with seeded credentials; live logs appear in table within 3 seconds of sim traffic; incident list page renders.
+**Phase 2 exit criteria:** `bash scripts/smoke-auth.sh` passes end-to-end without manual steps. Auth domain is the template — read `internal/auth/` before writing any other domain.
 
 ---
 
-## Sprint 7–8: Anomaly Detection (~25 hrs, Weeks 7–8)
+## Phase 3: Search Domain (~4 hrs)
 
-**Goal:** `make break-checkout` → incident appears in UI within 60 seconds.
+**Goal:** Read-only query API for log entries. Simplest domain after auth — no Kafka, no AI. Establishes the read-path pattern.
 
 | ID | Task | Est | Pri | Deps | Status |
 |---|---|---|---|---|---|
-| TASK-035 | Z-score + EWMA utilities: `helper/stats/zscore.go` (rolling z-score; configurable baseline window; sparse-data fallback returns 0); `helper/stats/ewma.go` | 2h | must | — | todo |
-| TASK-036 | `logs_metrics_5min` continuous aggregate (migration TASK-003): verify query returns per-service error rates via psql; confirm TimescaleDB refresh policy fires; add a manual `CALL refresh_continuous_aggregate(...)` to seed script | 1h | must | TASK-003 TASK-012 | todo |
-| TASK-037 | Cron command registry (`internal/cron/command.go`): mirrors boilerplate pattern — CLI command map keyed by job name; `cmd/cron/main.go` reads `CRON_JOB` env var and dispatches; makes each cron job independently runnable | 1h | must | TASK-009 | todo |
-| TASK-038 | Anomaly detector cron job (`internal/cron/anomaly_cronjob.go`): ticker every 10s; queries `logs_metrics_5min` via GORM; computes z-score per (tenant, service) using `helper/stats/zscore.go`; 10-minute cooldown per `(service, metric)` in Redis; sparse-data fallback (error_rate > 5%); calls `anomaly_service.Fire()` on trigger | 4h | must | TASK-035 TASK-036 TASK-037 | todo |
-| TASK-039 | Anomaly service + incident persistence (`internal/service/anomaly_service.go`): validate z-score threshold; insert `Incident` (status=OPEN, z_score, fingerprint, severity) within a `TxManager.RunInTx`; append `OutboxEvent` in same transaction; run `pmctl gen service` | 2.5h | must | TASK-038 TASK-009 | todo |
-| TASK-040 | Outbox publisher (`internal/outbox/publisher.go`): goroutine in `cmd/worker`; `FOR UPDATE SKIP LOCKED` query fetches up to 100 unpublished rows every 500ms; publishes each to Kafka via `KafkaPublisher`; exponential backoff (max 5 min) on failure; `MarkPublished` on success; `internal/repository/outbox_repository.go` implements `contract.OutboxRepository` | 3h | must | TASK-039 | todo |
-| TASK-041 | Outbox cleanup cron job (`internal/cron/outbox_cronjob.go`): daily job deletes `outbox_events WHERE published_at IS NOT NULL AND created_at < NOW() - INTERVAL '7 days'`; add to cron command registry | 0.5h | must | TASK-037 TASK-040 | todo |
-| TASK-042 | Consumer-side idempotency (`internal/outbox/dedup.go`): Redis SET keyed by `event_id` with 1h TTL; all consumers call `dedup.IsSeen(event_id)` before processing; reuse `helper/utils/stores/redis/` | 1h | must | TASK-040 | todo |
-| TASK-043 | Incident lifecycle endpoints: `internal/handler/incident_handler.go` adds `POST /v1/incidents/{id}/ack` + `POST /v1/incidents/{id}/resolve`; `internal/service/incident_service.go` handles status transitions + MTTR calculation via `contract.TxManager`; `internal/repository/incident_repository.go` adds `UpdateStatusTx` and `UpdateRCATx` (for Outbox composition) | 2.5h | must | TASK-031 TASK-040 | todo |
-| TASK-044 | Incident detail page (`web/src/pages/IncidentDetail.tsx`): status badge (OPEN=red, ACK=yellow, RESOLVED=green); z-score display; detected/acknowledged/resolved timestamps; Acknowledge button; WS push updates status badge without reload | 2h | must | TASK-043 TASK-034 | todo |
-| TASK-045 | WS push for incidents: `ws_hub` receives `anomalies.detected` events from bridge (TASK-029); fan-outs to dashboard; React dashboard updates incident count badge and shows new incident card without manual refresh | 1h | must | TASK-029 TASK-044 | todo |
-| TASK-046 | Demo scripts: `scripts/break-checkout.sh` (runs sim at `--error-rate=0.5 --service=checkout --duration=30s`); `scripts/fix-checkout.sh` (reverts checkout to `--error-rate=0.01`) | 1h | must | TASK-024 | todo |
+| TASK-025 | `internal/search/` repository + service: search service uses `LogRepo` (from ingestion domain) directly via interface; `search/service.go` implements full-text via `pg_trgm` GIN index, date-range filter, pagination | 1.5h | must | TASK-010 | todo |
+| TASK-026 | `internal/search/handler.go`: `GET /v1/logs/search?q=&service=&level=&from=&to=&page=&limit=`; `GET /v1/logs/{id}`; apply JWT + tenant middleware; response uses `internal/search/dto.go` shapes mapped via `internal/search/mapper.go` | 1.5h | must | TASK-025 TASK-022 | todo |
+| TASK-027 | Wire search into registry; run `pmctl gen service`; smoke test: seed 50 log rows → search by service name → verify pagination works | 1h | must | TASK-026 TASK-010 | todo |
 
-**Sprint exit criteria:** `bash scripts/break-checkout.sh` → wait 60s → incident appears in UI with status OPEN and z-score displayed; click Acknowledge → status badge changes to ACK.
+**Phase 3 exit criteria:** `GET /v1/logs/search?q=error` returns paginated results with correct tenant scoping.
 
 ---
 
-## Sprint 9–10: AI Integration (~24 hrs, Weeks 9–10)
+## Phase 4: Ingestion Domain (~10 hrs)
 
-**Goal:** Anomaly → RCA visible in UI within 15 seconds. Find-similar works.
+**Goal:** `POST /v1/logs` → fingerprint → Postgres → Kafka → enricher. Visible by querying the DB.
 
 | ID | Task | Est | Pri | Deps | Status |
 |---|---|---|---|---|---|
-| TASK-047 | Anthropic client (`external/anthropic/client.go`): wraps `anthropic-ai/sdk-go`; structured output via `tool_choice`; 20s timeout; retry once on JSON parse failure; implements `contract.LLMClient.Generate()`; `external/anthropic/dto.go` (request/response shapes) | 3h | must | TASK-006 | todo |
-| TASK-048 | OpenAI embedding client (`external/openai/client.go`): calls `text-embedding-3-small`; implements `contract.LLMClient.Embed()`; returns `[]float32` (1536 dims); `external/openai/dto.go` | 1.5h | must | TASK-006 | todo |
-| TASK-049 | LLM fake client (`internal/llm/fake.go`): deterministic output keyed by input hash; used in all unit tests; no network calls; implements full `contract.LLMClient` interface | 1h | must | TASK-047 | todo |
-| TASK-050 | Enricher service update (`internal/service/enricher_service.go`): on first sight of a new fingerprint (not in `error_embeddings`), call `LLMClient.Embed(top_error_message)` → upsert to `error_embeddings` with pgvector column; `internal/repository/embedding_repository.go` implements `EmbeddingRepo.UpsertEmbedding()` and `CosineSimilaritySearch()` | 2.5h | must | TASK-047 TASK-048 | todo |
-| TASK-051 | RCA prompt template (`internal/llm/prompts/rca.tmpl`): Go template fields — service, anomaly_type, z_score, window_start/end, current_rate, baseline_mean, top_errors ([]struct{Count, Message}), similar_incidents ([]struct{Date, ResolutionNote}); JSON-mode output schema (summary, likely_cause, confidence, suggested_actions); `rca.tmpl_test.go` renders with sample data and verifies JSON structure | 2h | must | TASK-047 | todo |
-| TASK-052 | 3-tier RCA cache (`internal/llm/cache.go`): L1 = Redis `rca:{fingerprint}` TTL 30m (hit → return, mark `cached:true`); L2 = Postgres `incidents.rca_summary` WHERE same fingerprint AND resolved_at > NOW()-24h (hit → refresh L1, return); L3 = fresh Sonnet call → write both L1 and L2 | 2.5h | must | TASK-051 | todo |
-| TASK-053 | RCA service (`internal/service/rca_service.go`): fingerprint → cache.Check() → gather context (50 logs ±2min from log_repository, top-3 error messages, 2 similar from EmbeddingRepo); render rca.tmpl; call `LLMClient.Generate()`; validate JSON; persist via `TxManager.RunInTx(UpdateRCATx + OutboxAppend)`; rule-based fallback on LLM error/timeout; run `pmctl gen service` | 4h | must | TASK-052 TASK-043 | todo |
-| TASK-054 | LLM cost tracking + budget guard: `internal/repository/llm_call_repository.go` inserts every Sonnet call (input_tokens, output_tokens, cost_usd, latency_ms, cache_hit); `internal/llm/budget.go` goroutine recalculates daily sum every 10 min; sets Redis `llm:disabled=true` if > $5; RCA path checks flag first; `internal/cron/cost_recompute_cronjob.go` daily rollup + add to command registry | 2h | must | TASK-053 | todo |
-| TASK-055 | Similar incidents: `internal/service/similarity_service.go` (pgvector cosine search top-3, similarity > 0.7, status=RESOLVED, within 90 days via `EmbeddingRepo.CosineSimilaritySearch()`); `GET /v1/incidents/{id}/similar` → `internal/handler/incident_handler.go`; `internal/types/dto/incident_dto.go` adds `SimilarIncidentResponse` | 2h | must | TASK-050 | todo |
-| TASK-056 | RCA consumer (`internal/consumer/rca_consumer.go`): subscribes to `anomalies.detected`; calls `rca_service.Generate()`; checks idempotency via `dedup.IsSeen(event_id)`; add to consumer supervisor | 1.5h | must | TASK-053 TASK-042 | todo |
-| TASK-057 | Incident detail page — RCA panel (`web/src/pages/IncidentDetail.tsx` update): RCA summary text; likely cause; confidence badge (low=grey, medium=yellow, high=green); suggested actions ordered list; evidence log IDs as clickable links; thumbs up/down feedback stored via `PATCH /v1/incidents/{id}/rca/feedback` | 2h | must | TASK-053 TASK-044 | todo |
-| TASK-058 | Similar incidents panel (`web/src/pages/IncidentDetail.tsx` update): renders alongside RCA panel; shows past incident date, service, MTTR, resolution note | 1h | should | TASK-055 TASK-057 | todo |
-| TASK-059 | AI cost insights: `GET /v1/insights/cost?range=7d` → `internal/handler/insight_handler.go`; React page `web/src/pages/Insights.tsx` with single Recharts line chart of daily spend | 1h | should | TASK-054 | todo |
+| TASK-028 | `internal/ingestion/repository.go` (LogRepo impl): batch insert to `log_entries` hypertable via GORM; `CountByWindow` for z-score windowed counts; `db.WithContext(ctx)` on every call | 1.5h | must | TASK-010 | todo |
+| TASK-029 | `internal/ingestion/service.go` (IngestService): validate batch (≤500 entries, ≤2MB), compute SHA-256 fingerprint per entry (service + level + top error message), call `KafkaPublisher.Publish(pulse.logs.raw)` via outbox pattern; `internal/ingestion/dto.go` (LogBatch, LogEntry shapes); run `pmctl gen service` | 2h | must | TASK-028 TASK-015 | todo |
+| TASK-030 | `internal/ingestion/enricher.go` (EnricherService): parse raw log, insert to log_entries hypertable; call `LogRepo.CountByWindow` for z-score window data, compute z-score via `helper/stats/zscore.go`; if z-score > threshold → publish `AnomalyDetectedEvent` to `pulse.anomalies` via outbox; `internal/ingestion/event.go` (RawLogEvent shape) | 3h | must | TASK-028 TASK-019 TASK-017 | todo |
+| TASK-031 | `internal/ingestion/consumer.go`: subscribes to `pulse.logs.raw`; calls EnricherService; idempotency via `outbox/dedup.go`; register in `internal/consumer/consumer.go` supervisor and `internal/registry/consumer_context.go` | 1.5h | must | TASK-030 TASK-016 | todo |
+| TASK-032 | `internal/ingestion/handler.go`: `POST /v1/logs` (batch ingest); `internal/ingestion/server.go` (go-zero HTTP server builder for cmd/ingest on port 8002); attach HMAC middleware + tenant middleware + rate-limit middleware from `internal/auth/` and `internal/middleware/` | 1.5h | must | TASK-029 TASK-022 TASK-014 | todo |
+| TASK-033 | `cmd/sim/main.go` synthetic traffic generator: `POST /v1/logs` with valid HMAC; flags `--target --api-key --hmac-secret --service --rps --error-rate --duration`; `scripts/simulate-traffic.sh` runs at 100 rps for 60s | 2h | must | TASK-032 | todo |
 
-**Sprint exit criteria:** `bash scripts/break-checkout.sh` → incident fires → RCA appears in UI within 15 seconds with non-empty summary and ≥1 suggested action; "Find similar" returns ≥1 result after second demo run; Redis `llm:disabled` flag is absent.
+**Phase 4 exit criteria:** `bash scripts/simulate-traffic.sh` runs 60s → `SELECT count(*) FROM log_entries` > 5000 rows.
 
 ---
 
-## Sprint 11: Polish (~12 hrs, Week 11)
+## Phase 5: Incident Domain (~10 hrs)
 
-**Goal:** Demo is smooth end-to-end. Slack alert fires. Resolve flow enforces required note.
+**Goal:** Anomaly detected → incident created in DB → ack/resolve lifecycle works.
 
 | ID | Task | Est | Pri | Deps | Status |
 |---|---|---|---|---|---|
-| TASK-060 | Slack notifier: `external/slack/client.go` (POST to webhook URL; uses `helper/utils/httpc/` for retry × 5 with backoff; implements `contract.Notifier`); `internal/service/notification_service.go` (formats message: service, z-score, RCA summary, link); notify consumer (`internal/consumer/notify_consumer.go`) subscribes to `rca.completed` | 2h | should | TASK-053 TASK-042 | todo |
-| TASK-061 | Incident resolution flow update: `POST /v1/incidents/{id}/resolve` validates `{category, note}` (both required — BR-13); computes MTTR (resolved_at - detected_at); updates status=RESOLVED via `TxManager.RunInTx(UpdateStatusTx + OutboxAppend)`; saga trigger stub (full saga in TASK-062) | 1.5h | must | TASK-043 | todo |
-| TASK-062 | Incident resolution saga (`internal/saga/`): `saga.go` (Step interface with Execute/Compensate/CanSkip), `executor.go` (orchestration loop + per-step compensation), `repository.go` (saga_instances CRUD via `internal/repository/saga_repository.go`), `incident_resolution.go` (6-step saga definition), `steps/` (mark_resolving, generate_postmortem, recluster_embeddings, update_metrics, send_notification, mark_resolved); `mark_resolved` uses Outbox internally | 2.5h | must | TASK-061 TASK-053 | todo |
-| TASK-063 | Resolve button in React (`web/src/pages/IncidentDetail.tsx`): modal with category dropdown (deploy issue / code bug / external / infra / other) + required note textarea; submit calls `POST /v1/incidents/{id}/resolve`; closes modal on success; shows error toast on failure | 1.5h | must | TASK-061 TASK-057 | todo |
-| TASK-064 | `make demo` script (`scripts/demo.sh`): idempotent full reset (truncate logs + incidents + embeddings + outbox + saga_instances) → `make migrate-up` → `make seed` → start sim → trigger `break-checkout` after 30s; prints dashboard URL and demo walkthrough steps | 1h | must | TASK-046 TASK-012 | todo |
-| TASK-065 | Error handling pass: all service errors wrap using `helper/utils/errors/` custom types (map to gRPC status codes); HTTP handlers return `{code, message}` JSON consistently via `helper/response/response.go`; React shows toast on 4xx/5xx; `internal/middleware/logging_middleware.go` logs structured request + response | 2h | should | — | todo |
-| TASK-066 | Data retention cron job (`internal/cron/retention_cronjob.go`): daily job drops TimescaleDB chunks older than 30 days; vacuum `audit_logs` older than 90 days; add to command registry | 0.5h | should | TASK-037 | todo |
-| TASK-067 | golangci-lint clean pass: fix all default-config warnings across all packages; add `//nolint:xxx // reason` only where genuinely needed | 1h | must | — | todo |
-| TASK-068 | Grafana dashboards: provision JSON dashboards in `deploy/grafana/provisioning/dashboards/` and `deploy/grafana/provisioning/datasources/`; "Pulse Internals" (RED metrics per service, Kafka consumer lag, DB active connections, Redis memory); "Demo Tenant" (log ingestion rate, open incident count, RCA cache hit rate, daily LLM spend) | 1h | should | — | todo |
+| TASK-034 | `internal/incident/repository.go` (IncidentRepo impl): Create, FindByID, FindByFingerprint, Update, List with filter (status, service, tenant, page/limit) | 1.5h | must | TASK-010 | todo |
+| TASK-035 | `internal/incident/anomaly.go` (AnomalyService): validate z-score threshold (configurable, default 3.0); 10-min cooldown per `(tenant, service, fingerprint)` in Redis; insert `Incident` (status=OPEN, z_score, fingerprint, severity) within `TxManager.RunInTx` + `OutboxAppender.Append` in same transaction; `internal/incident/event.go` (AnomalyDetectedEvent shape) | 2.5h | must | TASK-034 TASK-017 TASK-010 | todo |
+| TASK-036 | `internal/incident/service.go` (IncidentService): List (filter by status/service), GetByID, Acknowledge (status OPEN → ACK, set acked_at), Resolve (status ACK → RESOLVED, validate note + category, compute MTTR, write via RunInTx + outbox); run `pmctl gen service` | 2h | must | TASK-034 TASK-017 | todo |
+| TASK-037 | `internal/incident/handler.go`: `GET /v1/incidents`, `GET /v1/incidents/{id}`, `POST /v1/incidents/{id}/ack`, `POST /v1/incidents/{id}/resolve`; `internal/incident/server.go`; attach JWT + tenant middleware; response uses `internal/incident/dto.go` + `internal/incident/mapper.go` | 1.5h | must | TASK-036 TASK-022 | todo |
+| TASK-038 | Cron: `internal/cron/command.go` (CLI command registry keyed by job name); `internal/cron/anomaly_cronjob.go` (ticker 10s, query `logs_metrics_5min` continuous aggregate via GORM, call AnomalyService for each `(tenant, service)` group); add to cron registry and `cmd/cron/main.go` | 2h | must | TASK-035 TASK-010 | todo |
+| TASK-039 | `scripts/break-checkout.sh` (sim at `--error-rate=0.5 --service=checkout --duration=30s`) + `scripts/fix-checkout.sh` (reverts to `--error-rate=0.01`); wire incident into registry | 0.5h | must | TASK-033 TASK-038 | todo |
 
-**Sprint exit criteria:** Full 5-minute demo (`make demo`) executes without errors; Slack message arrives within 5s of RCA completion; Resolve modal enforces note; lint is clean.
+**Phase 5 exit criteria:** `bash scripts/break-checkout.sh` → wait 60s → incident row in DB with status=OPEN and z-score > 3; `POST /v1/incidents/{id}/ack` → status changes to ACK.
 
 ---
 
-## Sprint 12: Ship (~13 hrs, Week 12)
+## Phase 6: Notification Domain (~3 hrs)
 
-**Goal:** Live on Hetzner VPS with TLS. Benchmark recorded. README, Postman collection, and Loom done.
+**Goal:** RCA result triggers Slack alert. Consumes from `pulse.rca.result`.
 
 | ID | Task | Est | Pri | Deps | Status |
 |---|---|---|---|---|---|
-| TASK-069 | Provision Hetzner CCX13 VPS (Ubuntu 24.04): configure UFW (ports 22/80/443 only); install Docker 24+ + Docker Compose v2; configure DNS A record for `demo.pulse.dev` | 1h | must | — | todo |
-| TASK-070 | Production `deploy/docker-compose.yml`: Caddy (auto-TLS), Prometheus, Grafana + 4 app services (api, ingest, worker, cron); Docker secrets for Postgres password; all services `restart: unless-stopped`; `deploy/Caddyfile` reverse-proxies `/v1/logs*` → ingest:8002 and `/v1/*` → api:8000 | 2h | must | TASK-069 | todo |
-| TASK-071 | Deploy and smoke-test: SSH to VPS; `git clone` + set `.env` (mode 0600); `docker compose -f deploy/docker-compose.yml up -d`; run `make seed`; open `https://demo.pulse.dev`; confirm live logs and health check passes | 1h | must | TASK-070 | todo |
-| TASK-072 | k6 load tests: run `scripts/load-test/ingest-steady.js` (10k logs/sec × 5 min); `scripts/load-test/ingest-burst.js` (20k logs/sec × 30s); `scripts/load-test/ws-concurrency.js` (100 concurrent WS); record results in `docs/benchmarks/2026-05-xx.md` with p99 latency + Grafana screenshots | 2h | must | TASK-071 | todo |
-| TASK-073 | Generate `openapi.yaml` from protos (protoc-gen-openapiv2); import into Postman → export as `pulse.postman_collection.json`; check into repo; verify all 12 endpoints are present with correct request schemas | 1h | should | TASK-005 | todo |
-| TASK-074 | README: Mermaid architecture diagram (matches C4 Level 2 from Section 4); animated demo GIF or screenshot; benchmark numbers table (p99 ingest, p95 RCA, WS capacity); threat model summary; links to all 9 ADRs in `docs/adr/`; "What I'd build next" list (ClickHouse, Kubernetes, Temporal, Debezium); CI badge | 2h | must | TASK-072 | todo |
-| TASK-075 | Stub Helm chart (`deploy/helm/`): `Chart.yaml` + `values.yaml` skeleton for api, ingest, worker services; one-liner `README.helm.md` explaining this is a future-work scaffold; does not need to deploy | 0.5h | should | — | todo |
-| TASK-076 | Loom demo video (3 minutes): `make demo` → dashboard turns red → click incident → read RCA → click Find Similar → click Resolve (with note) → watch metrics return to normal; upload and add link to README | 1.5h | must | TASK-071 | todo |
-| TASK-077 | Blog post draft (1500–2000 words): "LLM Cost Engineering in a Real Go Backend — What Building Pulse Taught Me"; covers tiered model strategy, 3-tier caching, hard budget cap, per-call cost tracking; publish to dev.to or personal site | 2h | should | — | todo |
+| TASK-040 | `internal/notification/service.go` (NotificationService): format `AlertPayload` → Slack Block Kit message (service, z-score, RCA summary, dashboard link); call `contract.Notifier.SendAlert`; append `AuditLog` record | 1h | should | TASK-018 TASK-010 | todo |
+| TASK-041 | `internal/notification/consumer.go`: subscribes to `pulse.rca.result`; deserializes `RCACompletedEvent`; calls NotificationService; idempotency via dedup; register in consumer supervisor + registry | 1h | should | TASK-040 TASK-016 | todo |
+| TASK-042 | Wire notification into registry; smoke test: manually publish a `RCACompletedEvent` to `pulse.rca.result` → verify Slack message arrives | 1h | should | TASK-041 | todo |
 
-**Sprint exit criteria:** Interviewer opens `https://demo.pulse.dev`, sees live dashboard; `bash scripts/break-checkout.sh` run remotely, RCA appears within 15 seconds; k6 confirms p99 < 80ms at 10k logs/sec.
+**Phase 6 exit criteria:** Slack message arrives within 5s of a manually published `RCACompletedEvent`.
 
 ---
 
-## Cut List (in order — trim here first if behind schedule)
+## Phase 7: Stream Domain (~5 hrs)
 
-1. TASK-060 (Slack) → show in-UI notification only; cut external/slack entirely
-2. TASK-058 (Find-similar panel) → keep endpoint, drop React UI; show JSON in browser
-3. TASK-059 (Cost insights page) → log to DB, no React UI
-4. TASK-077 (Blog post) → write after job interviews
-5. TASK-075 (Helm chart stub) → drop; mention Kubernetes only in README
-6. TASK-068 (Grafana dashboards) → ship Prometheus raw; drop Grafana provisioning
-7. TASK-021 (BadgerDB buffer) → accept Kafka as hard dependency for demo
+**Goal:** Browser receives live log + incident events over WebSocket without polling.
 
-The **non-negotiable core chain**:
-`TASK-001 → TASK-003 → TASK-005 → TASK-019 → TASK-023 → TASK-033 → TASK-039 → TASK-053 → TASK-061 → TASK-071 → TASK-074`
+| ID | Task | Est | Pri | Deps | Status |
+|---|---|---|---|---|---|
+| TASK-043 | `internal/stream/hub.go` (WebSocket hub): in-process pub/sub; typed channels with service filter; fan-out to matching connections; sample beyond 1000 msgs/sec per client; thread-safe with `sync.RWMutex` | 3h | must | TASK-010 | todo |
+| TASK-044 | `internal/stream/handler.go`: `GET /v1/stream?token=<jwt>`; JWT validation; subscribe message `{action, channel, filter}`; write `{type, data}` frames; heartbeat ping every 30s; auto-close on auth expiry; Kafka → WS bridge: consumer subscribes to `pulse.logs.raw` + `pulse.anomalies` + `pulse.rca.result` → pushes to hub | 2h | must | TASK-043 TASK-022 | todo |
+
+**Phase 7 exit criteria:** `wscat -c ws://localhost:8000/v1/stream?token=<jwt>` receives live events within 3s of sim traffic.
+
+---
+
+## Phase 8: RCA Domain (~16 hrs)
+
+**Goal:** Anomaly → RCA summary in DB within 15s. Similarity search returns related incidents.
+
+| ID | Task | Est | Pri | Deps | Status |
+|---|---|---|---|---|---|
+| TASK-045 | LLM infrastructure (`internal/llm/`): `budget.go` (goroutine checks daily spend every 10min, sets Redis `llm:disabled=true` if > `LLM_DAILY_BUDGET_USD`; all LLM callers check this flag first); `cache.go` (3-tier: L1=Redis `rca:{fingerprint}` 30min TTL, L2=Postgres `rca_cache` < 24h, L3=fresh Claude call); `retry.go` (exponential backoff wrapper) | 2h | must | TASK-018 TASK-010 | todo |
+| TASK-046 | RCA prompt template (`internal/llm/prompts/rca.tmpl`): Go text/template fields — service, z_score, window_start/end, current_rate, baseline_mean, top_errors ([]struct{Count,Message}), similar_incidents ([]struct{Date,Note}); JSON-mode output schema (summary, likely_cause, confidence, suggested_actions); `rca.tmpl_test.go` renders with sample data and validates JSON schema | 2h | must | — | todo |
+| TASK-047 | `internal/rca/` repositories: `repository.go` (EmbeddingRepo impl: Upsert, FindByFingerprint, FindSimilar with pgvector `<=>` cosine distance); `llm_repository.go` (LLMCallRepo impl: Save, SumCostSince) — both GORM with `db.WithContext(ctx)` | 2h | must | TASK-010 | todo |
+| TASK-048 | `internal/rca/similarity.go` (SimilarityService): pgvector cosine search top-3, threshold ≥ 0.7, status=RESOLVED, within 90 days; on first sight of new fingerprint: call `LLMClient.Embed` → upsert to `error_embeddings`; budget guard check before every embed call | 2h | must | TASK-047 TASK-045 | todo |
+| TASK-049 | `internal/rca/service.go` (RCAService): fingerprint → 3-tier cache check (`internal/llm/cache.go`) → gather context (50 logs ±2min from LogRepo, top-3 error messages, 2 similar from SimilarityService) → render `rca.tmpl` → budget guard check → `LLMClient.Generate` → validate JSON output → persist via `TxManager.RunInTx` (update incident + outbox); rule-based fallback on LLM error/timeout; record LLMCall cost; run `pmctl gen service` | 4h | must | TASK-048 TASK-046 | todo |
+| TASK-050 | `internal/rca/consumer.go`: subscribes to `pulse.anomalies`; deserializes `AnomalyDetectedEvent`; calls RCAService; idempotency via dedup; register in consumer supervisor + registry | 1.5h | must | TASK-049 TASK-016 | todo |
+| TASK-051 | `internal/rca/handler.go`: `GET /v1/incidents/{id}/rca`; `GET /v1/incidents/{id}/similar`; `GET /v1/insights/cost?range=7d`; `PATCH /v1/incidents/{id}/rca/feedback` (thumbs up/down); JWT + tenant middleware | 1.5h | must | TASK-049 TASK-022 | todo |
+| TASK-052 | LLM cron jobs: `internal/cron/cost_recompute_cronjob.go` (daily rollup: SumCostSince(startOfDay), set/reset `llm:disabled`); `internal/cron/retention_cronjob.go` (drop TimescaleDB chunks > 30 days, vacuum audit_logs > 90 days); `internal/cron/outbox_cronjob.go` (delete outbox rows published > 7 days ago); add all to cron command registry | 1h | must | TASK-038 TASK-045 | todo |
+
+**Phase 8 exit criteria:** `bash scripts/break-checkout.sh` → incident fires → RCA summary appears in DB within 15s; `GET /v1/incidents/{id}/similar` returns ≥ 1 result after second demo run; Redis `llm:disabled` absent.
+
+---
+
+## Phase 9: Saga — Incident Resolution (~4 hrs)
+
+**Goal:** Resolve triggers all downstream steps atomically with compensation.
+
+| ID | Task | Est | Pri | Deps | Status |
+|---|---|---|---|---|---|
+| TASK-053 | Incident resolution saga (`internal/saga/`): `saga.go` + `executor.go` (orchestration loop, per-step compensation, CanSkip idempotency); `repository_impl.go` (SagaRepository impl: Load, Save, AdvanceStep, BeginCompensation); `incident_resolution.go` (6-step saga: MarkResolving → GeneratePostmortem → ReclusterEmbeddings → UpdateMetrics → MarkResolved → SendNotification); `steps/` implementations | 2.5h | must | TASK-051 TASK-049 | todo |
+| TASK-054 | Update `POST /v1/incidents/{id}/resolve` to trigger saga: validate `{category, note}` (required per BR-13); compute MTTR; launch saga instance via `TxManager.RunInTx`; incident handler returns immediately (saga runs async) | 1.5h | must | TASK-053 TASK-037 | todo |
+
+**Phase 9 exit criteria:** `POST /v1/incidents/{id}/resolve` with `{category, note}` → incident moves through all 6 saga steps; compensations roll back on step failure.
+
+---
+
+## Phase 10: Frontend (~13 hrs)
+
+**Goal:** Open browser, log in, watch live logs, see incidents, read RCA, resolve with note.
+
+| ID | Task | Est | Pri | Deps | Status |
+|---|---|---|---|---|---|
+| TASK-055 | React + Vite + Tailwind scaffold (`web/`): `shadcn/ui`; directory `web/src/{components,pages,hooks,api}`; login page; main layout (sidebar + header); typed API client wrappers | 3h | must | — | todo |
+| TASK-056 | Live log table (`web/src/pages/Dashboard.tsx`): WebSocket hook; virtual-scroll (max 500 visible rows); pause/resume toggle; service filter dropdown; exponential backoff reconnect | 4h | must | TASK-044 TASK-055 | todo |
+| TASK-057 | Incident list page (`web/src/pages/IncidentList.tsx`): open incident cards (service, severity badge, z-score, detected-at); poll `GET /v1/incidents?status=open` every 10s; WS push updates without reload | 2h | must | TASK-037 TASK-055 | todo |
+| TASK-058 | Incident detail page (`web/src/pages/IncidentDetail.tsx`): status badge; timestamps; RCA panel (summary, likely cause, confidence badge, suggested actions, evidence log IDs); similar incidents panel; Acknowledge button; thumbs up/down feedback | 2h | must | TASK-051 TASK-057 | todo |
+| TASK-059 | Resolve modal: category dropdown + required note textarea; `POST /v1/incidents/{id}/resolve`; error toast on 4xx/5xx; closes on success | 1h | must | TASK-054 TASK-058 | todo |
+| TASK-060 | AI cost insights page (`web/src/pages/Insights.tsx`): Recharts line chart of daily LLM spend from `GET /v1/insights/cost?range=7d` | 1h | should | TASK-051 TASK-055 | todo |
+
+**Phase 10 exit criteria:** `localhost:3000` loads; login with seeded credentials; logs appear within 3s of sim traffic; incident detail shows RCA within 15s of `break-checkout`; resolve modal enforces note.
+
+---
+
+## Phase 11: Polish (~8 hrs)
+
+**Goal:** Demo is smooth end-to-end. Lint clean. Demo script works hands-free.
+
+| ID | Task | Est | Pri | Deps | Status |
+|---|---|---|---|---|---|
+| TASK-061 | `make demo` script (`scripts/demo.sh`): idempotent full reset (truncate + migrate-up + seed) → start sim → trigger `break-checkout` after 30s; prints dashboard URL and walkthrough steps | 1h | must | TASK-039 TASK-013 | todo |
+| TASK-062 | Error handling pass: all service errors use `helper/utils/errors/` custom types mapping to gRPC status codes; HTTP handlers return `{code, message}` JSON consistently; React shows toast on 4xx/5xx | 2h | should | — | todo |
+| TASK-063 | golangci-lint clean pass: fix all default-config warnings; `//nolint` only where genuinely needed | 1h | must | — | todo |
+| TASK-064 | Grafana provisioning (`deploy/grafana/`): "Pulse Internals" (RED metrics per service, Kafka consumer lag, DB connections, Redis memory); "Demo Tenant" (log ingest rate, open incidents, RCA cache hit rate, daily LLM spend) | 1h | should | — | todo |
+| TASK-065 | Production `docker-compose.yml` (`deploy/`): Caddy (auto-TLS), Prometheus, Grafana + 4 app services; Docker secrets; `restart: unless-stopped`; `Caddyfile` routes `/v1/logs*` → ingest:8002 and `/v1/*` → api:8000 | 2h | must | — | todo |
+| TASK-066 | BadgerDB local ingest buffer (`internal/kafka/buffer.go`): on Kafka publish failure, write to local BadgerDB; background goroutine retries every 5s; clears on success | 1h | should | TASK-015 | todo |
+
+---
+
+## Phase 12: Ship (~13 hrs)
+
+**Goal:** Live on Hetzner VPS with TLS. Benchmarks recorded. README and Loom done.
+
+| ID | Task | Est | Pri | Deps | Status |
+|---|---|---|---|---|---|
+| TASK-067 | Provision Hetzner CCX13 VPS (Ubuntu 24.04): UFW (ports 22/80/443); Docker 24+ + Compose v2; DNS A record for `demo.pulse.dev` | 1h | must | — | todo |
+| TASK-068 | Deploy + smoke-test: SSH to VPS; `git clone` + `.env` (mode 0600); `docker compose -f deploy/docker-compose.yml up -d`; `make seed`; verify `https://demo.pulse.dev` loads and `/health` passes | 1h | must | TASK-067 TASK-065 | todo |
+| TASK-069 | k6 load tests: `scripts/load-test/ingest-steady.js` (10k logs/sec × 5min); `scripts/load-test/ingest-burst.js` (20k logs/sec × 30s); `scripts/load-test/ws-concurrency.js` (100 concurrent WS); record in `docs/benchmarks/2026-05-xx.md` | 2h | must | TASK-068 | todo |
+| TASK-070 | Generate `openapi.yaml` from protos; import to Postman → export `pulse.postman_collection.json`; check into repo | 1h | should | TASK-005 | todo |
+| TASK-071 | README: Mermaid architecture diagram (C4 Level 2); animated GIF or screenshot; benchmark table (p99 ingest, p95 RCA, WS capacity); threat model summary; "What I'd build next" list (ClickHouse, Kubernetes, Temporal, Debezium); CI badge | 2h | must | TASK-069 | todo |
+| TASK-072 | Helm chart stub (`deploy/helm/`): `Chart.yaml` + `values.yaml` skeleton for api, ingest, worker; `README.helm.md` noting this is future-work scaffold | 0.5h | should | — | todo |
+| TASK-073 | Loom demo video (3 min): `make demo` → dashboard turns red → click incident → read RCA → Find Similar → Resolve with note → metrics return normal; add link to README | 1.5h | must | TASK-068 | todo |
+| TASK-074 | Blog post draft (1500–2000 words): "LLM Cost Engineering in a Real Go Backend — What Building Pulse Taught Me"; covers tiered model strategy, 3-tier caching, hard budget cap, per-call cost tracking; publish to dev.to or personal site | 2h | should | — | todo |
+
+**Phase 12 exit criteria:** `https://demo.pulse.dev` live; `bash scripts/break-checkout.sh` run remotely → RCA in UI within 15s; k6 confirms p99 < 80ms at 10k logs/sec.
+
+---
+
+## Cut List (trim here first if behind schedule)
+
+1. TASK-042 (Slack smoke test) → skip; trust unit test
+2. TASK-060 (Cost insights page) → log to DB, no React UI
+3. TASK-064 (Grafana dashboards) → ship Prometheus raw; drop provisioning
+4. TASK-066 (BadgerDB buffer) → accept Kafka as hard dependency for demo
+5. TASK-072 (Helm chart stub) → drop; mention Kubernetes only in README
+6. TASK-074 (Blog post) → write after job interviews
+7. TASK-070 (Postman collection) → link to raw OpenAPI YAML instead
 
 ---
 
 ## Summary
 
-| Sprint | Focus | Hours | Task range |
+| Phase | Focus | Hours | Tasks |
 |---|---|---|---|
-| 1–2 | Foundation + Proto contracts | ~27h | TASK-001–012 |
-| 3–4 | Ingestion pipeline | ~25h | TASK-013–024 |
-| 5–6 | Realtime dashboard | ~25h | TASK-025–034 |
-| 7–8 | Anomaly detection | ~25h | TASK-035–046 |
-| 9–10 | AI integration | ~24h | TASK-047–059 |
-| 11 | Polish | ~12h | TASK-060–068 |
-| 12 | Ship | ~13h | TASK-069–077 |
-| **Total** | | **~151h** | **77 tasks** |
+| 0 | Foundation (done) | ~18h | TASK-001–007 |
+| 1 | Shared infrastructure | ~20h | TASK-008–019 |
+| 2 | Reference domain: auth | ~8h | TASK-020–024 |
+| 3 | Search domain | ~4h | TASK-025–027 |
+| 4 | Ingestion domain | ~10h | TASK-028–033 |
+| 5 | Incident domain | ~10h | TASK-034–039 |
+| 6 | Notification domain | ~3h | TASK-040–042 |
+| 7 | Stream domain | ~5h | TASK-043–044 |
+| 8 | RCA domain | ~16h | TASK-045–052 |
+| 9 | Saga — resolution | ~4h | TASK-053–054 |
+| 10 | Frontend | ~13h | TASK-055–060 |
+| 11 | Polish | ~8h | TASK-061–066 |
+| 12 | Ship | ~13h | TASK-067–074 |
+| **Total** | | **~132h** | **74 tasks** |

@@ -20,6 +20,22 @@ Apply these rules throughout every planning session:
 - Run `Skill` tool to load relevant skills (`systematic-debugging`, `writing-plans`, etc.)
 - Skills update automatically — always load the current version, never rely on memory
 
+### GoAtlas (Code Intelligence)
+When you need to explore source code, check structure, find functions/types/endpoints, or understand code flow, prefer using MCP GoAtlas tools (`search_code`, `find_symbol`, `find_callers`, `get_file_symbols`, `list_api_endpoints`, `read_file`) over manual grep/find. GoAtlas has indexed all PMC WMS services.
+
+**Token Budget for Exploration:**
+- **First choice:** GoAtlas MCP (`find_symbol`, `get_file_symbols`, `search_code`) — single tool call, no subagent overhead
+- **Second choice:** 1 Explore subagent with a focused, specific prompt
+- **Avoid:** 3 parallel Explore subagents unless the task genuinely spans 3 unrelated areas of the codebase
+
+**Task Classification — choose planning depth before starting:**
+
+| Task type | Examples | Planning depth |
+|---|---|---|
+| **Mechanical** | Interface files, constants, config structs, proto stubs | Write plan directly from spec — skip Plan subagent |
+| **Standard** | CRUD layer, mapper, handler wiring | 1 Explore + write plan directly |
+| **Complex** | Business logic, auth, multi-domain coordination | 1–2 Explore + 1 Plan subagent |
+
 ### NotebookLM (Spec & Docs)
 When you need to check specifications, business documentation, or need context about business logic, proactively use MCP NotebookLM tools (`notebook_query`, `notebook_list`) to look up information from existing notebooks. Especially when implementing new features or fixing bugs related to business logic, always cross-check with specs on NotebookLM before writing code.
 
