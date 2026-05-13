@@ -1,4 +1,91 @@
 syntax = "proto3";
-package search;
 
-// TODO TASK-005: define search service
+package pulse.search;
+
+option go_package = "pulse/api/search;searchpb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "api/common/common.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Pulse Search API"
+    version: "1.0"
+  }
+  consumes: "application/json"
+  produces: "application/json"
+  schemes: HTTP
+  schemes: HTTPS
+  security_definitions: {
+    security: {
+      key: "BearerAuth"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Bearer JWT token"
+      }
+    }
+  }
+};
+
+// LogEntry is the read model for a log_entries row served to API consumers.
+message LogEntry {
+  int64                     id           = 1 [json_name = "id"];
+  string                    service_name = 2 [json_name = "service_name"];
+  string                    level        = 3 [json_name = "level"];
+  string                    message      = 4 [json_name = "message"];
+  string                    fingerprint  = 5 [json_name = "fingerprint"];
+  google.protobuf.Struct    metadata     = 6 [json_name = "metadata"];
+  google.protobuf.Timestamp created_at   = 7 [json_name = "created_at"];
+}
+
+service SearchService {
+  rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse) {
+    option (google.api.http) = {get: "/v1/logs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Search log entries"
+      tags: "Search"
+    };
+  }
+
+  rpc GetLog(GetLogRequest) returns (GetLogResponse) {
+    option (google.api.http) = {get: "/v1/logs/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a single log entry by ID"
+      tags: "Search"
+    };
+  }
+}
+
+message SearchLogsRequest {
+  string                    service_name = 1 [json_name = "service_name"];
+  string                    level        = 2 [json_name = "level"];
+  string                    fingerprint  = 3 [json_name = "fingerprint"];
+  // query is a full-text search string matched against message.
+  string                    query        = 4 [json_name = "query"];
+  google.protobuf.Timestamp from         = 5 [json_name = "from"];
+  google.protobuf.Timestamp to           = 6 [json_name = "to"];
+  int32                     page         = 7 [json_name = "page"];
+  int32                     limit        = 8 [json_name = "limit"];
+}
+
+message SearchLogsResponse {
+  repeated LogEntry         items      = 1 [json_name = "items"];
+  pulse.common.Pagination   pagination = 2 [json_name = "pagination"];
+}
+
+message GetLogRequest {
+  int64 id = 1 [
+    json_name = "id",
+    (validate.rules).int64.gt = 0
+  ];
+}
+
+message GetLogResponse {
+  LogEntry log = 1 [json_name = "log"];
+}

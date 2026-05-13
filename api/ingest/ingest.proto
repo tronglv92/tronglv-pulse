@@ -1,4 +1,69 @@
 syntax = "proto3";
-package ingest;
 
-// TODO TASK-005: define ingest service
+package pulse.ingest;
+
+option go_package = "pulse/api/ingest;ingestpb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Pulse Ingest API"
+    version: "1.0"
+  }
+  consumes: "application/json"
+  produces: "application/json"
+  schemes: HTTP
+  schemes: HTTPS
+  security_definitions: {
+    security: {
+      key: "ApiKey"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "X-API-Key"
+        description: "Tenant API key (hashed and matched against api_keys table)"
+      }
+    }
+  }
+};
+
+service IngestService {
+  // IngestLog accepts a single log entry and publishes it to Kafka topic pulse.logs.raw.
+  rpc IngestLog(IngestLogRequest) returns (IngestLogResponse) {
+    option (google.api.http) = {
+      post: "/v1/ingest/logs"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Ingest a log entry"
+      tags: "Ingest"
+    };
+  }
+}
+
+message IngestLogRequest {
+  string service_name = 1 [
+    json_name = "service_name",
+    (validate.rules).string = {min_len: 1, max_len: 255}
+  ];
+  // level must be one of: debug, info, warn, error, fatal
+  string level = 2 [
+    json_name = "level",
+    (validate.rules).string = {in: ["debug", "info", "warn", "error", "fatal"]}
+  ];
+  string message = 3 [
+    json_name = "message",
+    (validate.rules).string.min_len = 1
+  ];
+  // metadata is arbitrary structured JSON forwarded to the log_entries.metadata JSONB column.
+  google.protobuf.Struct metadata = 4 [json_name = "metadata"];
+}
+
+message IngestLogResponse {
+  int64  id          = 1 [json_name = "id"];
+  string fingerprint = 2 [json_name = "fingerprint"];
+}

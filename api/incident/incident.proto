@@ -1,4 +1,167 @@
 syntax = "proto3";
-package incident;
 
-// TODO TASK-005: define incident service
+package pulse.incident;
+
+option go_package = "pulse/api/incident;incidentpb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "api/common/common.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Pulse Incident API"
+    version: "1.0"
+  }
+  consumes: "application/json"
+  produces: "application/json"
+  schemes: HTTP
+  schemes: HTTPS
+  security_definitions: {
+    security: {
+      key: "BearerAuth"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Bearer JWT token"
+      }
+    }
+  }
+};
+
+enum IncidentStatus {
+  INCIDENT_STATUS_UNSPECIFIED   = 0;
+  INCIDENT_STATUS_OPEN          = 1;
+  INCIDENT_STATUS_INVESTIGATING = 2;
+  INCIDENT_STATUS_RESOLVING     = 3;
+  INCIDENT_STATUS_RESOLVED      = 4;
+  INCIDENT_STATUS_CLOSED        = 5;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_LOW         = 1;
+  SEVERITY_MEDIUM      = 2;
+  SEVERITY_HIGH        = 3;
+  SEVERITY_CRITICAL    = 4;
+}
+
+// ResolutionCategory classifies the root cause when resolving an incident.
+enum ResolutionCategory {
+  RESOLUTION_CATEGORY_UNSPECIFIED = 0;
+  RESOLUTION_CATEGORY_CODE_BUG   = 1;
+  RESOLUTION_CATEGORY_CONFIG     = 2;
+  RESOLUTION_CATEGORY_INFRA      = 3;
+  RESOLUTION_CATEGORY_EXTERNAL   = 4;
+}
+
+message Incident {
+  int64          id           = 1  [json_name = "id"];
+  string         title        = 2  [json_name = "title"];
+  string         description  = 3  [json_name = "description"];
+  string         service_name = 4  [json_name = "service_name"];
+  string         fingerprint  = 5  [json_name = "fingerprint"];
+  IncidentStatus status       = 6  [json_name = "status"];
+  Severity       severity     = 7  [json_name = "severity"];
+  string         rca_summary  = 8  [json_name = "rca_summary"];
+  google.protobuf.Timestamp created_at  = 9  [json_name = "created_at"];
+  google.protobuf.Timestamp updated_at  = 10 [json_name = "updated_at"];
+  google.protobuf.Timestamp resolved_at = 11 [json_name = "resolved_at"];
+}
+
+service IncidentService {
+  rpc ListIncidents(ListIncidentsRequest) returns (ListIncidentsResponse) {
+    option (google.api.http) = {get: "/v1/incidents"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List incidents"
+      tags: "Incidents"
+    };
+  }
+
+  rpc GetIncident(GetIncidentRequest) returns (GetIncidentResponse) {
+    option (google.api.http) = {get: "/v1/incidents/{id}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get incident by ID"
+      tags: "Incidents"
+    };
+  }
+
+  rpc UpdateIncidentStatus(UpdateIncidentStatusRequest) returns (UpdateIncidentStatusResponse) {
+    option (google.api.http) = {
+      patch: "/v1/incidents/{id}/status"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Update incident status"
+      tags: "Incidents"
+    };
+  }
+
+  // TriggerRCA calls the RCA service (three-tier cache: Redis → DB → Claude Sonnet).
+  rpc TriggerRCA(TriggerRCARequest) returns (TriggerRCAResponse) {
+    option (google.api.http) = {
+      post: "/v1/incidents/{id}/rca"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Trigger or retrieve RCA for an incident"
+      tags: "Incidents"
+    };
+  }
+}
+
+message ListIncidentsRequest {
+  int32          page     = 1 [json_name = "page"];
+  int32          limit    = 2 [json_name = "limit"];
+  IncidentStatus status   = 3 [json_name = "status"];
+  Severity       severity = 4 [json_name = "severity"];
+}
+
+message ListIncidentsResponse {
+  repeated Incident       items      = 1 [json_name = "items"];
+  pulse.common.Pagination pagination = 2 [json_name = "pagination"];
+}
+
+message GetIncidentRequest {
+  int64 id = 1 [
+    json_name = "id",
+    (validate.rules).int64.gt = 0
+  ];
+}
+
+message GetIncidentResponse {
+  Incident incident = 1 [json_name = "incident"];
+}
+
+message UpdateIncidentStatusRequest {
+  int64 id = 1 [
+    json_name = "id",
+    (validate.rules).int64.gt = 0
+  ];
+  IncidentStatus status = 2 [
+    json_name = "status",
+    (validate.rules).enum.defined_only = true
+  ];
+  ResolutionCategory resolution_category = 3 [json_name = "resolution_category"];
+  string             resolution_notes    = 4 [json_name = "resolution_notes"];
+}
+
+message UpdateIncidentStatusResponse {
+  Incident incident = 1 [json_name = "incident"];
+}
+
+message TriggerRCARequest {
+  int64 id = 1 [
+    json_name = "id",
+    (validate.rules).int64.gt = 0
+  ];
+}
+
+message TriggerRCAResponse {
+  string rca_summary = 1 [json_name = "rca_summary"];
+  // cached is true when the result was served from L1 (Redis) or L2 (DB) cache.
+  bool   cached      = 2 [json_name = "cached"];
+}

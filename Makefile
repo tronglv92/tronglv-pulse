@@ -29,25 +29,36 @@ coverage: test
 
 grpc:
 	protoc \
-		-I api \
-		-I protos \
-		--go_out=. --go_opt=paths=source_relative \
-		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
-		api/**/*.proto
+		--proto_path=. \
+		--proto_path=./protos \
+		--go_out=paths=source_relative:. \
+		--go-grpc_out=paths=source_relative:. \
+		api/common/common.proto \
+		api/ingest/ingest.proto \
+		api/incident/incident.proto \
+		api/search/search.proto \
+		api/stream/stream.proto
 
 validate:
 	protoc \
-		-I api \
-		-I protos \
+		--proto_path=. \
+		--proto_path=./protos \
 		--validate_out="lang=go,paths=source_relative:." \
-		api/**/*.proto
+		api/common/common.proto \
+		api/ingest/ingest.proto \
+		api/incident/incident.proto \
+		api/search/search.proto \
+		api/stream/stream.proto
 
 gateway:
 	protoc \
-		-I api \
-		-I protos \
-		--grpc-gateway_out=. --grpc-gateway_opt=paths=source_relative \
-		api/**/*.proto
+		--proto_path=. \
+		--proto_path=./protos \
+		--grpc-gateway_out=paths=source_relative:. \
+		api/ingest/ingest.proto \
+		api/incident/incident.proto \
+		api/search/search.proto \
+		api/stream/stream.proto
 
 mocks:
 	mockery --all --dir internal/contract --output internal/contract/mock --outpkg mock

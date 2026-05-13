@@ -1,4 +1,21 @@
 syntax = "proto3";
-package common;
 
-// TODO TASK-005: define common service
+package pulse.common;
+
+option go_package = "pulse/api/common;commonpb";
+
+import "google/protobuf/timestamp.proto";
+
+// Pagination carries cursor-style pagination metadata in list responses.
+message Pagination {
+  int32 page        = 1 [json_name = "page"];
+  int32 limit       = 2 [json_name = "limit"];
+  int64 total       = 3 [json_name = "total"];
+  int32 total_pages = 4 [json_name = "total_pages"];
+}
+
+// TimestampRange is a half-open interval [from, to) used in log search filters.
+message TimestampRange {
+  google.protobuf.Timestamp from = 1 [json_name = "from"];
+  google.protobuf.Timestamp to   = 2 [json_name = "to"];
+}

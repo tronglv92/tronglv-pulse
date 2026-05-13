@@ -1,4 +1,63 @@
 syntax = "proto3";
-package stream;
 
-// TODO TASK-005: define stream service
+package pulse.stream;
+
+option go_package = "pulse/api/stream;streampb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Pulse Stream API"
+    version: "1.0"
+  }
+  consumes: "application/json"
+  produces: "application/json"
+  schemes: HTTP
+  schemes: HTTPS
+  security_definitions: {
+    security: {
+      key: "BearerAuth"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Bearer JWT token"
+      }
+    }
+  }
+};
+
+service StreamService {
+  // SubscribeLogs opens a server-sent event stream of real-time log entries.
+  // grpc-gateway proxies this to SSE; the WebSocket upgrade is handled by a custom HTTP handler.
+  rpc SubscribeLogs(SubscribeLogsRequest) returns (stream LogStreamEvent) {
+    option (google.api.http) = {get: "/v1/stream/logs"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Subscribe to real-time log stream"
+      tags: "Stream"
+    };
+  }
+}
+
+message SubscribeLogsRequest {
+  string service_name = 1 [json_name = "service_name"];
+  string level        = 2 [json_name = "level"];
+  string fingerprint  = 3 [json_name = "fingerprint"];
+}
+
+// LogStreamEvent is one frame pushed to the client over the SSE/WebSocket connection.
+message LogStreamEvent {
+  // event_type is "log" for normal entries or "anomaly" when a z-score spike is detected.
+  string                    event_type   = 1 [json_name = "event_type"];
+  int64                     id           = 2 [json_name = "id"];
+  string                    service_name = 3 [json_name = "service_name"];
+  string                    level        = 4 [json_name = "level"];
+  string                    message      = 5 [json_name = "message"];
+  string                    fingerprint  = 6 [json_name = "fingerprint"];
+  google.protobuf.Struct    metadata     = 7 [json_name = "metadata"];
+  google.protobuf.Timestamp occurred_at  = 8 [json_name = "occurred_at"];
+}
