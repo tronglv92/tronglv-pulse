@@ -1,5 +1,7 @@
 # Pulse — AI-Native Observability Platform
 
+[![CI](https://github.com/tronglv92/tronglv-pulse/actions/workflows/ci.yml/badge.svg)](https://github.com/tronglv92/tronglv-pulse/actions/workflows/ci.yml)
+
 Pulse ingests logs over HTTP, detects anomalies via rolling z-score, generates AI-powered Root Cause Analysis using Claude Sonnet, and streams live data via WebSocket.
 
 ## Stack

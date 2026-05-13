@@ -1,0 +1,27 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - misspell
+    - goimports
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+
+linters-settings:
+  goimports:
+    local-prefixes: pulse
+
+issues:
+  exclude-rules:
+    - path: "_test\\.go"
+      linters: [errcheck]
+    - path: "api/.*\\.pb\\.go"
+      linters: [staticcheck, unused]
+    - path: ".*/mocks?/.*\\.go"
+      linters: [unused]
