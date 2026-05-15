@@ -6,7 +6,11 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/zeromicro/go-zero/core/service"
+
 	"pulse/internal/config"
+	"pulse/internal/consumer"
+	"pulse/internal/kafka"
+	"pulse/internal/outbox"
 	"pulse/internal/registry"
 )
 
@@ -23,7 +27,16 @@ func main() {
 	svcGroup := service.NewServiceGroup()
 	defer svcGroup.Stop()
 
-	_ = registry.NewConsumerContext(c) // TODO TASK-016: wire Kafka consumers + outbox drainer
+	ctx := registry.NewConsumerContext(c)
+
+	kafkaPub := kafka.NewPublisherFromConfig(c.Kafka)
+	dedup := outbox.NewDeduplicator(ctx.GetCache())
+	pub := outbox.NewPublisher(ctx.GetOutboxRepo(), kafkaPub, dedup)
+
+	sup := consumer.NewSupervisor()
+	sup.Add(consumer.Registration{Name: "outbox-publisher", Listener: pub})
+	// TODO: register domain consumers (enricher, rca, notify) via sup.Add(...)
+	svcGroup.Add(sup)
 
 	svcGroup.Start()
 }

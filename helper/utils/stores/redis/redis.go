@@ -307,6 +307,19 @@ func (s *Redis) ExistsCtx(ctx context.Context, keys ...string) (int64, error) {
 	return conn.Exists(ctx, keys...).Result()
 }
 
+func (s *Redis) EvalCtx(ctx context.Context, script string, keys []string, args ...any) (any, error) {
+	conn, err := getRedis(s)
+	if err != nil {
+		return nil, err
+	}
+
+	val, err := conn.Eval(ctx, script, keys, args...).Result()
+	if err != nil && errors.Is(err, red.Nil) {
+		return nil, nil
+	}
+	return val, err
+}
+
 func (s *Redis) Close() error {
 	conn, err := getRedis(s)
 	if err != nil {

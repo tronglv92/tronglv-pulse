@@ -14,10 +14,30 @@
 set -euo pipefail
 
 : "${DB_HOST:=localhost}"
-: "${DB_PORT:=5433}"
+: "${DB_PORT:=5434}"
 : "${DB_NAME:=pulse_db}"
 : "${DB_USER:=postgres}"
 : "${DB_PASSWORD:=postgres}"
+
+# psql_run pipes stdin SQL to psql, using the docker compose db container
+# as a fallback when psql is not installed locally.
+psql_run() {
+  if command -v psql &>/dev/null; then
+    PGPASSWORD="$DB_PASSWORD" psql \
+      -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+      -v ON_ERROR_STOP=1 "$@"
+  else
+    DB_CONTAINER=$(docker compose ps -q db 2>/dev/null || true)
+    if [[ -z "$DB_CONTAINER" ]]; then
+      echo "error: psql not found and 'docker compose ps -q db' returned nothing." >&2
+      echo "Run 'docker compose up -d db' first, or install postgresql-client." >&2
+      exit 1
+    fi
+    docker exec -i "$DB_CONTAINER" \
+      env PGPASSWORD="$DB_PASSWORD" psql -U "$DB_USER" -d "$DB_NAME" \
+      -v ON_ERROR_STOP=1 "$@"
+  fi
+}
 
 # Pre-computed values (avoid bcrypt/sha256 shell dependencies):
 #   bcrypt("demo1234", cost=12)
@@ -25,10 +45,7 @@ DEMO_PASSWORD_HASH='$2a$12$/uAjrxkQzjW2BMo.C7w4nOObNbDHJ/Rr/k5Tf.7NfQfFfFc844yPO
 #   sha256("pk_demo_0000000000000000")
 DEMO_KEY_HASH='6b4c8b0a7b2b8454cc4a737bf4c8b2d84f9efd791989dcca6f820aff274dcc35'
 
-PGPASSWORD="$DB_PASSWORD" psql \
-  -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-  -v ON_ERROR_STOP=1 \
-  <<SQL
+psql_run <<SQL
 
 -- ── 1. Demo tenant ───────────────────────────────────────────────────────────
 INSERT INTO tenants (name, slug, api_secret, is_active, created_at, updated_at)

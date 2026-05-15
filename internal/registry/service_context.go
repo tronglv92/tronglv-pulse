@@ -81,7 +81,7 @@ func mustOpenDB(dsn string) *gorm.DB {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	logx.Must(err)
 	mustMigrate(db)
-	logx.Must(ensurePrerequisites(db))
+	// logx.Must(ensurePrerequisites(db))
 	logx.Must(db.AutoMigrate(entity.All()...))
 	return db
 }

@@ -89,6 +89,7 @@ type IngestConfig struct {
 	Name  string      `json:"Name"`
 	Host  string      `json:"Host,default=0.0.0.0"`
 	Port  int         `json:"Port"`
+	Cache CacheConfig `json:"Cache"`
 	Kafka KafkaConfig `json:"Kafka"`
 	Auth  AuthConfig  `json:"Auth"`
 }

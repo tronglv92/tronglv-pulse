@@ -2,6 +2,10 @@ Name: pulse-ingest
 Host: 0.0.0.0
 Port: ${SERVICE_INGEST_HTTP_PORT}
 
+Cache:
+  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Pass: ${REDIS_PASSWORD}
+
 Kafka:
   Brokers:
     - ${KAFKA_BROKERS}
