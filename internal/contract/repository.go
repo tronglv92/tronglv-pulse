@@ -104,6 +104,12 @@ type SagaRepo interface {
 	FindPending(ctx context.Context) ([]*entity.SagaInstance, error)
 }
 
+// UserRepo manages user records for authentication.
+type UserRepo interface {
+	FindByEmail(ctx context.Context, email string) (*entity.User, error)
+	FindByID(ctx context.Context, id int64) (*entity.User, error)
+}
+
 // AuditLogRepo is append-only — never updates or deletes rows.
 type AuditLogRepo interface {
 	Append(ctx context.Context, e *entity.AuditLog) error

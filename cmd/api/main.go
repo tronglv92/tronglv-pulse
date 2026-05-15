@@ -21,12 +21,14 @@ func main() {
 	fmt.Printf("Pulse API server starting (name: %s, http: %s:%d, grpc: %s)\n",
 		c.Name, c.Host, c.Port, c.Grpc.ListenOn)
 
+	svcCtx := registry.NewServiceContext(c)
+
+	srv := handler.NewHealthServer(c.Name, c.Host, c.Port)
+	handler.NewRestHandler(svcCtx).Register(srv)
+
 	svcGroup := service.NewServiceGroup()
 	defer svcGroup.Stop()
 
-	svcGroup.Add(handler.NewHealthServer(c.Name, c.Host, c.Port))
-
-	_ = registry.NewServiceContext(c) // TODO TASK-023: wire HTTP + gRPC handlers
-
+	svcGroup.Add(srv)
 	svcGroup.Start()
 }

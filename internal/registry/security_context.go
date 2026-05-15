@@ -20,6 +20,6 @@ func NewSecurityContext(c config.APIConfig) SecurityContext {
 	return &securityContext{
 		AuthenticationContext: NewAuthenticationContext(c),
 		AuthorizationContext:  NewAuthorizationContext(),
-		HttpSecurityContext:   NewHttpSecurityContext(),
+		HttpSecurityContext:   NewHttpSecurityContext(c),
 	}
 }

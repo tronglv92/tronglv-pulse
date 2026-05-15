@@ -14,6 +14,7 @@ type ServiceFactoryContext interface {
 	GetEmbeddingRepo() contract.EmbeddingRepo
 	GetLLMCallRepo() contract.LLMCallRepo
 	GetTenantRepo() contract.TenantRepo
+	GetUserRepo() contract.UserRepo
 	GetAPIKeyRepo() contract.APIKeyRepo
 	GetOutboxRepo() contract.OutboxRepo
 	GetSagaRepo() contract.SagaRepo
